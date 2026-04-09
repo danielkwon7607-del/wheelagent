@@ -4,7 +4,7 @@ Prints P&L, positions, and premiums collected today.
 """
 import os
 import logging
-from datetime import date, datetime
+from datetime import date
 from alpaca_client import AlpacaClient
 
 os.makedirs("logs", exist_ok=True)
@@ -22,7 +22,6 @@ log = logging.getLogger(__name__)
 def run_summary():
     client = AlpacaClient()
     account = client._trading.get_account()
-    positions = client._trading.get_all_positions()
 
     buying_power = float(account.buying_power)
     portfolio_value = float(account.portfolio_value)
@@ -32,7 +31,7 @@ def run_summary():
     open_puts, open_calls = client.get_open_nvda_options()
 
     print("\n" + "="*50)
-    print(f"  WHEEL BOT DAILY SUMMARY — {date.today()}")
+    print(f"  WHEEL BOT DAILY SUMMARY - {date.today()}")
     print("="*50)
     print(f"  Portfolio Value : ${portfolio_value:,.2f}")
     print(f"  Buying Power    : ${buying_power:,.2f}")
