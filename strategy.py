@@ -3,10 +3,10 @@ import math
 import pytz
 
 
-def is_market_hours() -> bool:
+def is_market_hours(_now=None) -> bool:
     """Returns True if current time is within NYSE market hours (9:30am-4pm ET, Mon-Fri)."""
     et = pytz.timezone("US/Eastern")
-    now = datetime.now(et)
+    now = (_now or datetime.now(et)).astimezone(et)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)

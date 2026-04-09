@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+import pytz
 import pytest
 from strategy import (
     is_market_hours,
@@ -12,9 +13,29 @@ from strategy import (
 
 # --- is_market_hours ---
 
-def test_market_hours_returns_bool():
-    result = is_market_hours()
-    assert isinstance(result, bool)
+def test_market_hours_open():
+    et = pytz.timezone("US/Eastern")
+    # Monday 10am ET — should be open
+    monday_10am = datetime(2026, 4, 6, 10, 0, 0, tzinfo=et)
+    assert is_market_hours(_now=monday_10am) is True
+
+def test_market_hours_before_open():
+    et = pytz.timezone("US/Eastern")
+    # Monday 9:00am ET — before open
+    monday_9am = datetime(2026, 4, 6, 9, 0, 0, tzinfo=et)
+    assert is_market_hours(_now=monday_9am) is False
+
+def test_market_hours_after_close():
+    et = pytz.timezone("US/Eastern")
+    # Monday 4:01pm ET — after close
+    monday_after_close = datetime(2026, 4, 6, 16, 1, 0, tzinfo=et)
+    assert is_market_hours(_now=monday_after_close) is False
+
+def test_market_hours_weekend():
+    et = pytz.timezone("US/Eastern")
+    # Saturday 11am ET
+    saturday = datetime(2026, 4, 11, 11, 0, 0, tzinfo=et)
+    assert is_market_hours(_now=saturday) is False
 
 
 def test_get_put_strike_respects_buying_power():
@@ -44,6 +65,11 @@ def test_get_call_strike_rounds_up_to_nearest_dollar():
     strike = get_call_strike(cost_basis=103.50)
     assert strike == int(strike)
     assert strike >= 103.50
+
+
+def test_get_call_strike_no_float_rounding_artifact():
+    # Without IEEE 754 fix, 110.0 * 1.10 = 121.00000000000001 -> ceil = 122
+    assert get_call_strike(cost_basis=110.00) == 121.00
 
 
 def test_get_target_expiry_is_14_to_28_days_out():
