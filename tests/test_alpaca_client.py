@@ -12,7 +12,9 @@ def mock_env(monkeypatch):
 
 @pytest.fixture
 def client(mock_env):
-    with patch("alpaca_client.TradingClient"), patch("alpaca_client.StockHistoricalDataClient"):
+    with patch("alpaca_client.TradingClient"), \
+         patch("alpaca_client.StockHistoricalDataClient"), \
+         patch("alpaca_client.OptionHistoricalDataClient"):
         return AlpacaClient()
 
 
@@ -55,3 +57,12 @@ def test_get_open_nvda_options_empty(client):
     puts, calls = client.get_open_nvda_options()
     assert puts == []
     assert calls == []
+
+
+def test_get_option_quote_returns_midprice(client):
+    mock_quote = MagicMock()
+    mock_quote.bid_price = 1.80
+    mock_quote.ask_price = 2.20
+    client._option_data.get_option_latest_quote.return_value = {"NVDA251121P00108000": mock_quote}
+    result = client.get_option_quote("NVDA251121P00108000")
+    assert result == 2.00  # midprice of 1.80 and 2.20

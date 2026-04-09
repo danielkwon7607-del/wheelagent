@@ -3,13 +3,12 @@ from dotenv import load_dotenv
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import (
     GetOptionContractsRequest,
-    MarketOrderRequest,
     LimitOrderRequest,
-    ClosePositionRequest,
 )
 from alpaca.trading.enums import OrderSide, OrderType, TimeInForce, ContractType
 from alpaca.data.historical.stock import StockHistoricalDataClient
-from alpaca.data.requests import StockLatestQuoteRequest
+from alpaca.data.historical.option import OptionHistoricalDataClient
+from alpaca.data.requests import StockLatestQuoteRequest, OptionLatestQuoteRequest
 from datetime import date
 
 
@@ -22,6 +21,7 @@ class AlpacaClient:
         secret = os.environ["ALPACA_SECRET_KEY"]
         self._trading = TradingClient(key, secret, paper=True)
         self._data = StockHistoricalDataClient(key, secret)
+        self._option_data = OptionHistoricalDataClient(key, secret)
 
     def get_buying_power(self) -> float:
         account = self._trading.get_account()
@@ -105,12 +105,7 @@ class AlpacaClient:
 
     def get_option_quote(self, contract_symbol: str) -> float:
         """Get the current mid-price of an option contract."""
-        from alpaca.data.historical.option import OptionHistoricalDataClient
-        from alpaca.data.requests import OptionLatestQuoteRequest
-        key = os.environ["ALPACA_API_KEY"]
-        secret = os.environ["ALPACA_SECRET_KEY"]
-        opt_data = OptionHistoricalDataClient(key, secret)
         req = OptionLatestQuoteRequest(symbol_or_symbols=[contract_symbol])
-        quotes = opt_data.get_option_latest_quote(req)
+        quotes = self._option_data.get_option_latest_quote(req)
         q = quotes[contract_symbol]
         return (float(q.bid_price) + float(q.ask_price)) / 2
