@@ -39,6 +39,7 @@ class WheelBot:
             return {"action": "MARKET_CLOSED", "time": datetime.now().isoformat()}
 
         buying_power = self.client.get_buying_power()
+        options_buying_power = self.client.get_options_buying_power()
         nvda_price = self.client.get_nvda_price()
         has_shares, share_qty, cost_basis = self.client.get_nvda_stock_position()
         open_puts, open_calls = self.client.get_open_nvda_options()
@@ -48,7 +49,7 @@ class WheelBot:
             has_open_put=len(open_puts) > 0,
             has_open_call=len(open_calls) > 0,
         )
-        log.info(f"State={state} | NVDA=${nvda_price:.2f} | BuyingPower=${buying_power:.2f}")
+        log.info(f"State={state} | NVDA=${nvda_price:.2f} | OptionsBuyingPower=${options_buying_power:.2f}")
 
         # SHORT_PUT: check if we should close early
         if state == "SHORT_PUT":
@@ -89,7 +90,7 @@ class WheelBot:
 
         # NO_POSITION: sell a cash-secured put
         if state == "NO_POSITION":
-            strike = get_put_strike(nvda_price, buying_power)
+            strike = get_put_strike(nvda_price, options_buying_power)
             expiry = get_target_expiry()
             contract = self.client.find_put_contract(strike, expiry)
             if not contract:

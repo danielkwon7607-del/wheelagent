@@ -27,6 +27,11 @@ class AlpacaClient:
         account = self._trading.get_account()
         return float(account.buying_power)
 
+    def get_options_buying_power(self) -> float:
+        """Returns options-specific buying power — used to size cash-secured puts correctly."""
+        account = self._trading.get_account()
+        return float(account.options_buying_power)
+
     def get_nvda_price(self) -> float:
         req = StockLatestQuoteRequest(symbol_or_symbols=["NVDA"])
         quotes = self._data.get_stock_latest_quote(req)
