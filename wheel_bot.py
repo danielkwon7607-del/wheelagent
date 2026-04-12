@@ -17,12 +17,13 @@ from strategy import (
     should_close_early,
 )
 
-os.makedirs("logs", exist_ok=True)
+LOG_DIR = os.path.join(os.path.expanduser("~"), "wheel_bot_logs")
+os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[
-        logging.FileHandler("logs/wheel.log"),
+        logging.FileHandler(os.path.join(LOG_DIR, "wheel.log")),
         logging.StreamHandler(),
     ],
 )
