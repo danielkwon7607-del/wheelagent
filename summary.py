@@ -7,15 +7,10 @@ import logging
 from datetime import date
 from alpaca_client import AlpacaClient
 
-LOG_DIR = os.path.join(os.path.expanduser("~"), "wheel_bot_logs")
-os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(LOG_DIR, "summary.log")),
-        logging.StreamHandler(),
-    ],
+    handlers=[logging.StreamHandler()],
 )
 log = logging.getLogger(__name__)
 
