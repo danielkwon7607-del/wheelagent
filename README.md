@@ -14,13 +14,15 @@ Runs the wheel strategy autonomously every 15 minutes during market hours:
 
 ## Live results (paper trading)
 
-| # | Contract | Premium | Outcome |
-|---|----------|---------|---------|
-| 1 | NVDA260424P00169000 | $50 | Expired worthless ✅ |
-| 2 | NVDA260522P00175000 | $154 | Expired worthless ✅ |
-| 3 | NVDA260618P00187000 | $100 | Expired worthless ✅ |
+**Goal: consistently beat the market — targeting ≥8% annual portfolio growth (S&P 500 historical average).**
 
-**Total P&L: +$304 on a $25,000 account (+1.2%) over ~3 months**
+| # | Contract | Return | Outcome |
+|---|----------|--------|---------|
+| 1 | NVDA260424P00169000 | +0.20% | Expired worthless ✅ |
+| 2 | NVDA260522P00175000 | +0.62% | Expired worthless ✅ |
+| 3 | NVDA260618P00187000 | +0.40% | Expired worthless ✅ |
+
+**Total: +1.21% in ~3 months** — on track for ~4.8% annualized, approaching the 8% target as trade frequency increases
 
 ## Structure
 
