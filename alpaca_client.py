@@ -9,7 +9,7 @@ from alpaca.trading.enums import OrderSide, OrderType, TimeInForce, ContractType
 from alpaca.data.historical.stock import StockHistoricalDataClient
 from alpaca.data.historical.option import OptionHistoricalDataClient
 from alpaca.data.requests import StockLatestQuoteRequest, OptionLatestQuoteRequest
-from datetime import date
+from datetime import date, timedelta
 
 
 load_dotenv(".env.paper")
@@ -61,34 +61,58 @@ class AlpacaClient:
         return puts, calls
 
     def find_put_contract(self, strike: float, expiry: date) -> str | None:
-        """Find the best available put contract at or below the target strike."""
-        req = GetOptionContractsRequest(
-            underlying_symbols=["NVDA"],
-            expiration_date=expiry,
-            type=ContractType.PUT,
-            strike_price_lte=str(strike),
-        )
-        contracts = self._trading.get_option_contracts(req)
-        if not contracts.option_contracts:
-            return None
-        # Pick the highest strike at or below our target
-        best = max(contracts.option_contracts, key=lambda c: float(c.strike_price))
-        return best.symbol
+        """Find the best available put contract at or below the target strike.
+        Tries the target expiry and nearby dates to handle market holidays
+        (e.g. Juneteenth falls on a Friday, so options expire Thursday instead).
+        Uses a ±$25 strike window to avoid Alpaca's paginated results returning
+        deep-OTM junk contracts before reaching our target price range."""
+        min_strike = max(1.0, strike - 25)
+        candidates = [
+            expiry,
+            expiry - timedelta(days=1),  # holiday: expiry shifted back one day
+            expiry + timedelta(days=1),  # rare forward shift
+            expiry + timedelta(days=7),  # next Friday entirely
+        ]
+        for candidate_expiry in candidates:
+            req = GetOptionContractsRequest(
+                underlying_symbols=["NVDA"],
+                expiration_date=candidate_expiry,
+                type=ContractType.PUT,
+                strike_price_gte=str(min_strike),
+                strike_price_lte=str(strike),
+            )
+            contracts = self._trading.get_option_contracts(req)
+            if contracts.option_contracts:
+                # Pick the highest strike at or below our target
+                best = max(contracts.option_contracts, key=lambda c: float(c.strike_price))
+                return best.symbol
+        return None
 
     def find_call_contract(self, strike: float, expiry: date) -> str | None:
-        """Find the best available call contract at or above the target strike."""
-        req = GetOptionContractsRequest(
-            underlying_symbols=["NVDA"],
-            expiration_date=expiry,
-            type=ContractType.CALL,
-            strike_price_gte=str(strike),
-        )
-        contracts = self._trading.get_option_contracts(req)
-        if not contracts.option_contracts:
-            return None
-        # Pick the lowest strike at or above our target
-        best = min(contracts.option_contracts, key=lambda c: float(c.strike_price))
-        return best.symbol
+        """Find the best available call contract at or above the target strike.
+        Tries the target expiry and nearby dates to handle market holidays.
+        Uses a +$25 strike window to avoid pagination issues."""
+        max_strike = strike + 25
+        candidates = [
+            expiry,
+            expiry - timedelta(days=1),
+            expiry + timedelta(days=1),
+            expiry + timedelta(days=7),
+        ]
+        for candidate_expiry in candidates:
+            req = GetOptionContractsRequest(
+                underlying_symbols=["NVDA"],
+                expiration_date=candidate_expiry,
+                type=ContractType.CALL,
+                strike_price_gte=str(strike),
+                strike_price_lte=str(max_strike),
+            )
+            contracts = self._trading.get_option_contracts(req)
+            if contracts.option_contracts:
+                # Pick the lowest strike at or above our target
+                best = min(contracts.option_contracts, key=lambda c: float(c.strike_price))
+                return best.symbol
+        return None
 
     def sell_option(self, contract_symbol: str, limit_price: float) -> dict:
         """Sell 1 option contract at a limit price."""
