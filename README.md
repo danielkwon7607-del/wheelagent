@@ -23,6 +23,7 @@ Runs the wheel strategy autonomously every 15 minutes during market hours:
 | 3 | NVDA260618P00187000 | +0.40% | Expired worthless ✅ |
 
 **Total: +1.21% in ~3 months** — on track for ~4.8% annualized, approaching the 8% target as trade frequency increases
+(I have yet to run this script throughout the summer, but when I optimize the script again, we should see a much higher annualzied rate eventually)
 
 ## Structure
 
