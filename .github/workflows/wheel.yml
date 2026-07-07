@@ -1,0 +1,37 @@
+name: Wheel Bot
+
+# GitHub Actions cron is UTC-only and cannot handle timezones or DST.
+# So we fire across a WIDE UTC window that covers NYSE hours in both
+# EST (14:30-21:00 UTC) and EDT (13:30-20:00 UTC), then let the bot's
+# own is_market_hours() check (which uses pytz US/Eastern and is
+# DST-aware) decide whether to actually trade. Runs outside real market
+# hours just log "Market closed" and exit — cheap and harmless.
+on:
+  schedule:
+    # Every 15 min, 13:00-21:45 UTC, Monday-Friday.
+    - cron: "*/15 13-21 * * 1-5"
+  # Lets you trigger a run by hand from the Actions tab to test.
+  workflow_dispatch:
+
+jobs:
+  run-wheel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"   # caches deps so each run installs in seconds
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run wheel bot
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: python wheel_bot.py
