@@ -1,20 +1,26 @@
-# Multi-Ticker Wheel (SOFI) + Weekly Email Report — Design
+# Multi-Ticker Wheel (SOFI) + Daily Email Report — Design
 
 Date: 2026-07-07
 Status: Approved direction, pending user review of this spec
+Revised: bumped SOFI put cushion 8% → 12% OTM after pulling 2yr SOFI
+volatility data (3-week windows ended down ≥8% in 22% of cases historically —
+too aggressive for the agreed ~1-in-8/10 assignment rate); report cadence
+changed from weekly-only to every trading day per user request.
 
 ## Goal
 
 Raise strategy ROI toward a 10%+ annual target without unbounded downside, and
-prove the system works end-to-end with an automated weekly analyst-style email
+prove the system works end-to-end with an automated daily analyst-style email
 report. Everything runs free (GitHub Actions + Gmail SMTP + Alpaca paper).
 
 Two deliverables, built in order:
 
 1. **Strategy engine:** generalize the NVDA-only wheel bot into a multi-ticker
    wheel with SOFI as the primary underlying.
-2. **Reporting:** a weekly email report, holiday-aware, sent at the end of each
-   trading week, following the user's fixed 9-section format.
+2. **Reporting:** an email report sent after close every trading day,
+   following the user's fixed 9-section format (with the reporting window
+   rolling from the current week's Monday through today, so weekly aggregates
+   still make sense on a Tuesday as well as a Friday).
 
 ## Part 1 — Multi-ticker wheel engine
 
@@ -28,7 +34,7 @@ WATCHLIST = [
         symbol="SOFI",
         enabled=True,            # opens new positions
         max_contracts=4,         # concurrent CSP contracts cap
-        put_otm_pct=0.08,        # sell puts ~8% below spot (tunable)
+        put_otm_pct=0.12,        # sell puts ~12% below spot (tunable)
         call_otm_pct=0.05,       # covered calls ~5% above cost basis
     ),
     Ticker(
@@ -43,10 +49,19 @@ CASH_BUFFER = 1500.0             # never commit the last $1,500 of buying power
 ```
 
 Rationale:
-- SOFI at ~$18/share ties up ~$1,600 per safe-strike contract → 4 contracts
-  ≈ $6,400 of the ~$8,100 currently free, leaving a buffer.
-- `put_otm_pct=0.08` targets roughly 1-in-8/1-in-10 assignment on a high-IV
-  name — the agreed tradeoff to reach ~10% annualized. Tunable in one line.
+- SOFI at ~$17.75/share, 12% OTM → strike ~$15.50, ties up ~$1,550 per
+  contract → 4 contracts ≈ $6,200 of the ~$8,100 currently free, leaving a
+  buffer.
+- `put_otm_pct=0.12` is calibrated against 2 years of actual SOFI daily bars
+  (501 trading days): 3-week rolling windows (the life of one contract) ended
+  down ≥8% in 22.0% of cases and ≥10% in 17.5% — an 8% cushion would have
+  meant assignment roughly 1-in-4/5, not the agreed 1-in-8/10. A 12% cushion
+  targets that agreed rate more realistically. SOFI's daily range over the
+  period was $6.32–$32.21 and it has had six single days of ≥10% drawdown, so
+  this remains a materially more volatile underlying than NVDA — the richer
+  premium is the direct trade for that risk, and assignment is the accepted,
+  bounded downside (own the shares, sell calls against them), not a tail risk
+  to be engineered away entirely.
 - NVDA `enabled=False`: the open $172.50 put (exp 2026-07-24) is managed to
   completion (hold / 50% close / assignment → covered calls), but no new NVDA
   puts are opened. Re-enable later by flipping the flag. ServiceNow (NOW) can
@@ -82,12 +97,15 @@ Rationale:
 - If a close hasn't filled, defer the roll to the next scheduled run.
 - `is_market_hours()` gate on every run.
 
-## Part 2 — Weekly email report
+## Part 2 — Daily email report
 
 ### Data source: Alpaca is the single source of truth
 
 Each GitHub Actions run is ephemeral, so the report never relies on local
-state. It reconstructs the week from broker records:
+state. It reconstructs the current reporting window from broker records —
+"this week" always means the current calendar week's Monday (or the first
+trading day of the week, on a Monday holiday) through today, so the same
+9-section format is sensible whether it's sent on a Tuesday or a Friday:
 
 - `get_account()` — equity, cash, buying power.
 - `get_all_positions()` — open positions and unrealized P&L.
@@ -127,11 +145,15 @@ System health check verifies, not assumes:
 - Gmail SMTP (SSL, port 465), from and to daniel.kwon7607@gmail.com.
   Credentials from env: `GMAIL_APP_PASSWORD` (already in GitHub secrets),
   address constant in config.
-- New workflow `.github/workflows/weekly-report.yml`: cron fires every
-  weekday ~21:30 UTC (after market close). The script asks the Alpaca
-  calendar: "is today the last trading day of this calendar week?" If yes →
-  send; if no → exit quietly. This makes Friday-holiday weeks send on
-  Thursday automatically.
+- New workflow `.github/workflows/daily-report.yml`: cron fires every weekday
+  ~21:30 UTC (after market close). The script asks the Alpaca calendar
+  whether today was a trading day; if not (weekend edge case in the cron, or
+  an unexpected market holiday) it exits quietly with no email. Otherwise it
+  sends — one email per trading day, every trading day.
+- The fixed template's greeting line stays exactly
+  "hey its claude, here's your weekly trading report" per the user's format,
+  even though delivery is now daily — the report content itself still covers
+  the rolling week-to-date window described above.
 - Failure visibility: if report generation itself errors, the workflow fails
   (red X + GitHub email notification) rather than silently skipping.
 
@@ -141,7 +163,7 @@ System health check verifies, not assumes:
   contract-count sizing under buying-power limits, OCC symbol parsing,
   strike math with configurable OTM percentages.
 - Report tests with mocked Alpaca data: template rendering, goal-meter math,
-  last-trading-day-of-week logic (normal week, Friday-holiday week),
+  rolling week-to-date window logic (mid-week send, Monday-holiday week),
   health-check flag paths (rejected order, missed run).
 - Email send path tested with a mocked SMTP client; one real end-to-end test
   send before first scheduled run.
@@ -150,7 +172,7 @@ System health check verifies, not assumes:
 
 1. Engine refactor + tests → deploy → verify SOFI puts sell correctly on
    paper (first market-hours run).
-2. Report module + tests → one manual test send → enable weekly schedule.
+2. Report module + tests → one manual test send → enable daily schedule.
 3. (Later, optional) re-enable NVDA or add NOW once the 7/24 put resolves;
    phase-3 idea: agentic report commentary via Claude Agent SDK.
 
