@@ -40,8 +40,14 @@ adding something means editing or replacing something — not appending.
 - logging_setup.py: log/summary timestamps in Pacific (Daniel is on the
   west coast). Display only — market hours stay in New York time; never
   move is_market_hours to Pacific (it would trade 12:30-7pm ET).
-- .github/workflows/wheel.yml: cron + workflow_dispatch from main; the
-  bot's is_market_hours() decides whether to act. Includes keepalive commit.
+- Trigger: cron-job.org job 8559901 "wheel bot trigger" (Daniel's account)
+  POSTs workflow_dispatch on main every 15 min, 9:00-15:45 America/New_York,
+  Mon-Fri; emails Daniel after 2 failures. It holds a fine-grained GitHub
+  token (this repo, Actions r/w; expiry unknown). setup_trigger.py creates
+  or updates it from gitignored .env.trigger (token + cron-job.org API key).
+- .github/workflows/wheel.yml: workflow_dispatch only, concurrency group
+  wheel-bot (runs queue, never overlap). The bot's is_market_hours()
+  decides whether to act.
 
 ## Conventions
 <!-- how work is done here: style, workflow, what to never do -->
@@ -56,10 +62,12 @@ adding something means editing or replacing something — not appending.
 
 ## Gotchas
 <!-- things that will bite: the surprise, and what to do instead -->
-- GitHub's */15 cron is heavily throttled: in Sep 2026 only 2-4 runs/day
-  reached the runner, some after the close, and none ran after
-  2026-09-25 even though the workflow shows active. Don't assume the bot
-  runs every 15 min; check `gh run list` before reasoning about timing.
+- Don't re-add a GitHub `schedule:` trigger. It was throttled to 2-4
+  runs/day (hours late) and stopped entirely after 2026-09-25. If runs
+  stop, check the cron-job.org job history and whether the token expired.
+- is_market_hours ignores holidays and early closes. On those days only
+  the quote-staleness checks stop trades; Alpaca get_clock() knows the
+  real calendar.
 - Option data is the free "indicative" feed only (OPRA agreement not
   signed). Quotes ~0-5s old; snapshots include IV and greeks. Its prices
   can be non-monotonic across strikes — sanity-check before trusting.
