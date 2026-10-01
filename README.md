@@ -46,7 +46,15 @@ python wheel_bot.py
 
 ## Scheduling
 
-Runs silently via Windows Task Scheduler using `run_silent.vbs` every 15 minutes, 9:30am–4pm ET. Logs to `C:\Users\<you>\wheel_bot_logs\wheel.log`.
+Runs on GitHub Actions. A free [cron-job.org](https://cron-job.org) job starts the
+workflow every 15 minutes, 9:00am–3:45pm New York time (6:00am–12:45pm PT),
+Monday–Friday. The bot itself only trades 9:30am–4pm ET. GitHub's built-in
+schedule was too unreliable (runs hours late or skipped).
+
+- Logs: the Actions tab on GitHub, timestamps in Pacific time.
+- Set up or update the trigger (for example, after renewing the GitHub token):
+  fill in `.env.trigger` (gitignored) and run `python setup_trigger.py`.
+- Run once by hand: Actions tab → Wheel Bot → Run workflow, or `python wheel_bot.py` locally.
 
 ## Stack
 

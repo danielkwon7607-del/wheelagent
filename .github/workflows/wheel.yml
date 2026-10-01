@@ -1,21 +1,22 @@
 name: Wheel Bot
 
-# GitHub Actions cron is UTC-only and cannot handle timezones or DST.
-# So we fire across a WIDE UTC window that covers NYSE hours in both
-# EST (14:30-21:00 UTC) and EDT (13:30-20:00 UTC), then let the bot's
-# own is_market_hours() check (which uses pytz US/Eastern and is
-# DST-aware) decide whether to actually trade. Runs outside real market
-# hours just log "Market closed" and exit — cheap and harmless.
+# Started by an outside timer, not GitHub's schedule. GitHub's cron ran
+# hours late or not at all (Sep 2026), so a cron-job.org job calls this
+# workflow's dispatch API every 15 min, 9:00-15:45 New York time, Mon-Fri
+# (see setup_trigger.py). The bot's own is_market_hours() still decides
+# whether to trade, so early or extra runs just log "Market closed".
 on:
-  schedule:
-    # Every 15 min, 13:00-21:45 UTC, Monday-Friday.
-    - cron: "*/15 13-21 * * 1-5"
-  # Lets you trigger a run by hand from the Actions tab to test.
+  # Also lets you trigger a run by hand from the Actions tab to test.
   workflow_dispatch:
 
-# Needed so the keepalive step below can push an empty commit.
 permissions:
-  contents: write
+  contents: read
+
+# One run at a time: a run started while another is in progress waits for
+# it, so two runs can never both see "no open orders" and both place one.
+concurrency:
+  group: wheel-bot
+  cancel-in-progress: false
 
 jobs:
   run-wheel:
@@ -39,21 +40,3 @@ jobs:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
         run: python wheel_bot.py
-
-      # GitHub auto-disables scheduled workflows in public repos after 60
-      # days with no commits. If the last commit is 45+ days old, push an
-      # empty one to reset that clock. Runs after the bot and can never
-      # block or fail a trade.
-      - name: Keepalive
-        if: always()
-        continue-on-error: true
-        run: |
-          age=$(( $(date +%s) - $(git log -1 --format=%ct) ))
-          if [ "$age" -gt $(( 45 * 86400 )) ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-            git commit --allow-empty -m "chore: keepalive (prevents GitHub disabling the cron)"
-            git push
-          else
-            echo "Last commit is $(( age / 86400 )) days old, no keepalive needed."
-          fi
