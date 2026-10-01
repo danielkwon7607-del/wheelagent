@@ -1,6 +1,83 @@
+from dataclasses import dataclass
 from datetime import date, timedelta, datetime
 import math
+import re
 import pytz
+
+
+# Safety limits. Phase 4 moves these into a config file.
+CAPITAL_CAP = 25_000.0         # most capital the bot may commit, whatever the account holds
+MAX_QUOTE_AGE_SECONDS = 60     # refuse to trade on a quote older than this
+MAX_OPTION_SPREAD_PCT = 0.25   # refuse to trade an option whose (ask - bid) / mid is wider
+MAX_STOCK_SPREAD_PCT = 0.01    # wider than this, the stock quote is junk; use last trade
+STALE_ORDER_MINUTES = 10       # a bot order still open after this long is cancelled and re-priced
+BOT_ORDER_PREFIX = "wheelbot-" # client_order_id prefix, so the bot only ever cancels its own orders
+
+
+@dataclass(frozen=True)
+class Quote:
+    bid: float
+    ask: float
+    timestamp: datetime
+
+    @property
+    def mid(self) -> float:
+        return (self.bid + self.ask) / 2
+
+
+def quote_problem(quote: Quote, now: datetime, max_spread_pct: float = MAX_OPTION_SPREAD_PCT) -> str | None:
+    """Returns why a quote is unsafe to trade on, or None if it is usable."""
+    if quote.bid <= 0 or quote.ask <= 0:
+        return f"zero bid/ask ({quote.bid}/{quote.ask})"
+    if quote.ask < quote.bid:
+        return f"crossed quote ({quote.bid}/{quote.ask})"
+    age = (now - quote.timestamp).total_seconds()
+    if age > MAX_QUOTE_AGE_SECONDS:
+        return f"stale quote ({age:.0f}s old)"
+    spread_pct = (quote.ask - quote.bid) / quote.mid
+    if spread_pct > max_spread_pct:
+        return f"spread too wide ({quote.bid}/{quote.ask}, {spread_pct:.0%} of mid)"
+    return None
+
+
+def underlying_price(quote: Quote, last_price: float, last_time: datetime, now: datetime) -> float | None:
+    """Stock price from the quote mid, falling back to the last trade.
+    Returns None if neither is fresh and sane — the bot must not trade then."""
+    if quote_problem(quote, now, max_spread_pct=MAX_STOCK_SPREAD_PCT) is None:
+        return quote.mid
+    if last_price > 0 and (now - last_time).total_seconds() <= MAX_QUOTE_AGE_SECONDS:
+        return last_price
+    return None
+
+
+def round_to_tick(price: float) -> float:
+    """NVDA is in the options Penny Program: $0.01 ticks under $3, $0.05 at $3 and up."""
+    tick = 0.01 if price < 3 else 0.05
+    return round(round(price / tick) * tick, 2)
+
+
+def occ_strike(symbol: str) -> float:
+    """Strike from an OCC option symbol, e.g. NVDA261016P00207500 -> 207.5."""
+    return int(symbol[-8:]) / 1000
+
+
+def is_nvda_symbol(symbol: str) -> bool:
+    """True for NVDA stock or an NVDA option contract."""
+    return symbol == "NVDA" or re.fullmatch(r"NVDA\d{6}[CP]\d{8}", symbol) is not None
+
+
+def available_capital(options_buying_power: float, capital_in_use: float, cap: float = CAPITAL_CAP) -> float:
+    """Capital the bot may commit to a new cash-secured put: the account's
+    options buying power, but never more than what is left under the cap."""
+    return max(0.0, min(options_buying_power, cap - capital_in_use))
+
+
+def is_bot_order(client_order_id: str | None) -> bool:
+    return (client_order_id or "").startswith(BOT_ORDER_PREFIX)
+
+
+def is_order_stale(submitted_at: datetime, now: datetime) -> bool:
+    return now - submitted_at >= timedelta(minutes=STALE_ORDER_MINUTES)
 
 
 def is_market_hours(_now=None) -> bool:
@@ -39,7 +116,7 @@ def get_call_strike(cost_basis: float) -> float:
 
 def get_target_expiry() -> date:
     """
-    Returns the nearest Friday that is 14-28 days from today.
+    Returns the first Friday at least 14 days from today (so 14-20 days out).
     Options expire on Fridays.
     """
     today = date.today()

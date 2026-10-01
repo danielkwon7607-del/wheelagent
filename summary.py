@@ -2,10 +2,10 @@
 Daily Summary — run at 4pm ET via /schedule
 Prints P&L, positions, and premiums collected today.
 """
-import os
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from alpaca_client import AlpacaClient
+from strategy import underlying_price
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,10 +34,13 @@ def run_summary():
     print(f"  Equity          : ${equity:,.2f}")
     print("-"*50)
     if has_shares:
-        nvda_price = client.get_nvda_price()
-        unrealized = (nvda_price - cost_basis) * share_qty
+        last_price, last_time = client.get_nvda_last_trade()
+        nvda_price = underlying_price(client.get_nvda_quote(), last_price, last_time, datetime.now(timezone.utc))
         print(f"  NVDA Shares     : {share_qty} @ ${cost_basis:.2f} cost basis")
-        print(f"  Unrealized P&L  : ${unrealized:+.2f}")
+        if nvda_price is None:
+            print("  Unrealized P&L  : n/a (no fresh NVDA price)")
+        else:
+            print(f"  Unrealized P&L  : ${(nvda_price - cost_basis) * share_qty:+.2f}")
     else:
         print("  NVDA Shares     : None")
     print("-"*50)

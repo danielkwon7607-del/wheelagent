@@ -1,15 +1,31 @@
 import os
+import uuid
 from dotenv import load_dotenv
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import (
     GetOptionContractsRequest,
+    GetOrdersRequest,
     LimitOrderRequest,
 )
-from alpaca.trading.enums import OrderSide, OrderType, TimeInForce, ContractType
+from alpaca.trading.enums import (
+    OrderSide,
+    OrderType,
+    PositionIntent,
+    QueryOrderStatus,
+    TimeInForce,
+    ContractType,
+)
+from alpaca.common.exceptions import APIError
 from alpaca.data.historical.stock import StockHistoricalDataClient
 from alpaca.data.historical.option import OptionHistoricalDataClient
-from alpaca.data.requests import StockLatestQuoteRequest, OptionLatestQuoteRequest
-from datetime import date, timedelta
+from alpaca.data.requests import (
+    StockLatestQuoteRequest,
+    StockLatestTradeRequest,
+    OptionLatestQuoteRequest,
+)
+from datetime import date, datetime, timedelta
+
+from strategy import BOT_ORDER_PREFIX, Quote, is_nvda_symbol
 
 
 load_dotenv(".env.paper")
@@ -32,10 +48,16 @@ class AlpacaClient:
         account = self._trading.get_account()
         return float(account.options_buying_power)
 
-    def get_nvda_price(self) -> float:
+    def get_nvda_quote(self) -> Quote:
         req = StockLatestQuoteRequest(symbol_or_symbols=["NVDA"])
-        quotes = self._data.get_stock_latest_quote(req)
-        return float(quotes["NVDA"].ask_price)
+        q = self._data.get_stock_latest_quote(req)["NVDA"]
+        return Quote(float(q.bid_price), float(q.ask_price), q.timestamp)
+
+    def get_nvda_last_trade(self) -> tuple[float, datetime]:
+        """Returns (price, timestamp) of the latest NVDA trade."""
+        req = StockLatestTradeRequest(symbol_or_symbols=["NVDA"])
+        t = self._data.get_stock_latest_trade(req)["NVDA"]
+        return float(t.price), t.timestamp
 
     def get_nvda_stock_position(self) -> tuple[bool, int, float]:
         """Returns (has_shares, quantity, avg_cost_basis)."""
@@ -115,26 +137,44 @@ class AlpacaClient:
         return None
 
     def sell_option(self, contract_symbol: str, limit_price: float) -> dict:
-        """Sell 1 option contract at a limit price."""
+        """Sell to open 1 option contract at a limit price."""
+        return self._submit_limit(contract_symbol, 1, OrderSide.SELL, PositionIntent.SELL_TO_OPEN, limit_price)
+
+    def buy_to_close(self, contract_symbol: str, qty: int, limit_price: float) -> dict:
+        """Buy to close a short option at a limit price (never at market)."""
+        return self._submit_limit(contract_symbol, qty, OrderSide.BUY, PositionIntent.BUY_TO_CLOSE, limit_price)
+
+    def _submit_limit(self, symbol: str, qty: int, side: OrderSide, intent: PositionIntent, limit_price: float) -> dict:
+        # Tagged so the bot can tell its own orders from manual ones.
+        client_order_id = f"{BOT_ORDER_PREFIX}{uuid.uuid4().hex}"
         order = LimitOrderRequest(
-            symbol=contract_symbol,
-            qty=1,
-            side=OrderSide.SELL,
+            symbol=symbol,
+            qty=qty,
+            side=side,
             type=OrderType.LIMIT,
             time_in_force=TimeInForce.DAY,
-            limit_price=round(limit_price, 2),
+            limit_price=limit_price,
+            position_intent=intent,
+            client_order_id=client_order_id,
         )
         result = self._trading.submit_order(order)
-        return {"id": str(result.id), "symbol": contract_symbol, "limit_price": limit_price}
+        return {"id": str(result.id), "client_order_id": client_order_id, "symbol": symbol,
+                "side": side.value, "limit_price": limit_price}
 
-    def close_option_position(self, contract_symbol: str) -> dict:
-        """Buy to close an option position (close early at 50% profit)."""
-        result = self._trading.close_position(contract_symbol)
-        return {"id": str(result.id), "symbol": contract_symbol, "action": "closed"}
+    def get_open_nvda_orders(self) -> list:
+        """All open (unfilled, uncancelled) orders on NVDA stock or NVDA options."""
+        orders = self._trading.get_orders(GetOrdersRequest(status=QueryOrderStatus.OPEN, limit=500))
+        return [o for o in orders if is_nvda_symbol(o.symbol or "")]
 
-    def get_option_quote(self, contract_symbol: str) -> float:
-        """Get the current mid-price of an option contract."""
+    def cancel_order(self, order_id) -> bool:
+        """Returns False if Alpaca refused the cancel, e.g. the order just filled."""
+        try:
+            self._trading.cancel_order_by_id(order_id)
+            return True
+        except APIError:
+            return False
+
+    def get_option_quote(self, contract_symbol: str) -> Quote:
         req = OptionLatestQuoteRequest(symbol_or_symbols=[contract_symbol])
-        quotes = self._option_data.get_option_latest_quote(req)
-        q = quotes[contract_symbol]
-        return (float(q.bid_price) + float(q.ask_price)) / 2
+        q = self._option_data.get_option_latest_quote(req)[contract_symbol]
+        return Quote(float(q.bid_price), float(q.ask_price), q.timestamp)

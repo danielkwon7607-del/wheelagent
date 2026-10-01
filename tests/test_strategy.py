@@ -1,14 +1,30 @@
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, timezone
 import pytz
 import pytest
 from strategy import (
+    CAPITAL_CAP,
+    Quote,
+    available_capital,
+    is_bot_order,
     is_market_hours,
+    is_nvda_symbol,
+    is_order_stale,
     get_put_strike,
     get_call_strike,
     get_target_expiry,
+    occ_strike,
+    quote_problem,
+    round_to_tick,
     should_close_early,
     determine_state,
+    underlying_price,
 )
+
+NOW = datetime(2026, 10, 1, 15, 0, tzinfo=timezone.utc)
+
+
+def quote(bid, ask, age_seconds=0):
+    return Quote(bid, ask, NOW - timedelta(seconds=age_seconds))
 
 
 # --- is_market_hours ---
@@ -72,10 +88,10 @@ def test_get_call_strike_no_float_rounding_artifact():
     assert get_call_strike(cost_basis=110.00) == 121.00
 
 
-def test_get_target_expiry_is_14_to_28_days_out():
+def test_get_target_expiry_is_14_to_20_days_out():
     expiry = get_target_expiry()
     today = date.today()
-    assert timedelta(days=14) <= (expiry - today) <= timedelta(days=28)
+    assert timedelta(days=14) <= (expiry - today) <= timedelta(days=20)
 
 
 def test_get_target_expiry_is_a_friday():
@@ -111,3 +127,79 @@ def test_determine_state_long_shares_no_call():
 def test_determine_state_short_call():
     state = determine_state(has_shares=True, has_open_put=False, has_open_call=True)
     assert state == "SHORT_CALL"
+
+
+# --- quotes ---
+
+def test_quote_problem_accepts_fresh_tight_quote():
+    assert quote_problem(quote(0.54, 0.59), NOW) is None
+
+@pytest.mark.parametrize("q, reason", [
+    (quote(0.0, 0.59), "zero"),
+    (quote(0.54, 0.0), "zero"),
+    (quote(0.60, 0.55), "crossed"),
+    (quote(0.54, 0.59, age_seconds=61), "stale"),
+    (quote(0.30, 0.50), "spread too wide"),  # 50% of mid
+])
+def test_quote_problem_rejects_bad_quotes(q, reason):
+    assert reason in quote_problem(q, NOW)
+
+def test_underlying_price_uses_mid_not_ask():
+    assert underlying_price(quote(230.00, 230.10), 229.00, NOW, NOW) == pytest.approx(230.05)
+
+def test_underlying_price_falls_back_to_last_trade_when_quote_is_bad():
+    # Near the open the ask can be zero or the quote junk-wide
+    assert underlying_price(quote(0.0, 231.0), 230.50, NOW, NOW) == 230.50
+    assert underlying_price(quote(200.0, 260.0), 230.50, NOW, NOW) == 230.50
+
+def test_underlying_price_none_when_nothing_is_fresh():
+    stale = NOW - timedelta(minutes=10)
+    assert underlying_price(quote(230.0, 230.1, age_seconds=600), 230.0, stale, NOW) is None
+    assert underlying_price(quote(0.0, 0.0), 0.0, NOW, NOW) is None
+
+
+# --- order pricing and symbols ---
+
+@pytest.mark.parametrize("price, expected", [
+    (0.565, 0.56), (0.5651, 0.57), (2.999, 3.0), (3.27, 3.25), (3.28, 3.3), (12.02, 12.0),
+])
+def test_round_to_tick(price, expected):
+    assert round_to_tick(price) == expected
+
+def test_occ_strike():
+    assert occ_strike("NVDA261016P00207500") == 207.5
+    assert occ_strike("NVDA251121C00110000") == 110.0
+
+def test_is_nvda_symbol():
+    assert is_nvda_symbol("NVDA")
+    assert is_nvda_symbol("NVDA261016P00207500")
+    assert not is_nvda_symbol("AAPL")
+    assert not is_nvda_symbol("NVDL")
+    assert not is_nvda_symbol("NVDAX")
+
+
+# --- capital cap ---
+
+def test_available_capital_cap_binds_when_account_is_bigger():
+    assert available_capital(options_buying_power=100_000, capital_in_use=0) == CAPITAL_CAP
+
+def test_available_capital_buying_power_binds_when_smaller():
+    assert available_capital(options_buying_power=5_000, capital_in_use=0) == 5_000
+
+def test_available_capital_subtracts_capital_in_use():
+    assert available_capital(options_buying_power=100_000, capital_in_use=20_750) == 4_250
+
+def test_available_capital_never_negative():
+    assert available_capital(options_buying_power=100_000, capital_in_use=30_000) == 0.0
+
+
+# --- order bookkeeping ---
+
+def test_is_bot_order():
+    assert is_bot_order("wheelbot-abc123")
+    assert not is_bot_order("695b87ea-770")
+    assert not is_bot_order(None)
+
+def test_is_order_stale():
+    assert not is_order_stale(NOW - timedelta(minutes=9), NOW)
+    assert is_order_stale(NOW - timedelta(minutes=10), NOW)
