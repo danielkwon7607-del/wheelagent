@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 
 from alpaca_client import AlpacaClient
+from logging_setup import now_pacific, setup_logging
 from strategy import (
     available_capital,
     determine_state,
@@ -24,11 +25,7 @@ from strategy import (
     underlying_price,
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    handlers=[logging.StreamHandler()],
-)
+setup_logging("%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 
@@ -48,8 +45,8 @@ class WheelBot:
 
     def run(self) -> dict:
         if not is_market_hours():
-            log.info("Market closed — no action taken.")
-            return {"action": "MARKET_CLOSED", "time": datetime.now().isoformat()}
+            log.info("Market closed (open 6:30am-1pm PT) — no action taken.")
+            return {"action": "MARKET_CLOSED", "time": now_pacific().isoformat()}
 
         # Settle orders from earlier runs before reading positions, so a
         # working order is never mistaken for "no position" and duplicated.

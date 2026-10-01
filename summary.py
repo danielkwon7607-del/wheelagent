@@ -1,17 +1,14 @@
 """
-Daily Summary — run at 4pm ET via /schedule
+Daily Summary — run after the close (1pm PT / 4pm ET)
 Prints P&L, positions, and premiums collected today.
 """
 import logging
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from alpaca_client import AlpacaClient
+from logging_setup import now_pacific, setup_logging
 from strategy import underlying_price
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    handlers=[logging.StreamHandler()],
-)
+setup_logging("%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
 
 
@@ -27,7 +24,7 @@ def run_summary():
     open_puts, open_calls = client.get_open_nvda_options()
 
     print("\n" + "="*50)
-    print(f"  WHEEL BOT DAILY SUMMARY - {date.today()}")
+    print(f"  WHEEL BOT DAILY SUMMARY - {now_pacific():%Y-%m-%d %I:%M%p %Z}")
     print("="*50)
     print(f"  Portfolio Value : ${portfolio_value:,.2f}")
     print(f"  Buying Power    : ${buying_power:,.2f}")
