@@ -1,5 +1,7 @@
 # Multi-Ticker Wheel (SOFI) + Daily Email Report Implementation Plan
 
+> **SHELVED 2026-10-01.** Daniel decided to stay NVDA-only. Do not execute this plan unless he asks. See .kiln/index.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Generalize the NVDA-only wheel bot into a multi-ticker engine that runs SOFI (12% OTM cushion, up to 4 contracts) alongside the existing NVDA position, and add a daily email report that reconstructs account activity from Alpaca's own records and follows the user's fixed 9-section format.

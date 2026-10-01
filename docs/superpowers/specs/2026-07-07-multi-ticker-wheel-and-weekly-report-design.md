@@ -1,7 +1,7 @@
 # Multi-Ticker Wheel (SOFI) + Daily Email Report — Design
 
 Date: 2026-07-07
-Status: Approved direction, pending user review of this spec
+Status: SHELVED 2026-10-01. Daniel decided to stay NVDA-only. Do not implement.
 Revised: bumped SOFI put cushion 8% → 12% OTM after pulling 2yr SOFI
 volatility data (3-week windows ended down ≥8% in 22% of cases historically —
 too aggressive for the agreed ~1-in-8/10 assignment rate); report cadence
