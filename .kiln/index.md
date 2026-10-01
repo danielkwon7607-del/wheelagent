@@ -37,6 +37,9 @@ adding something means editing or replacing something — not appending.
   Quote(bid, ask, timestamp); all orders are DAY limit orders tagged
   client_order_id "wheelbot-<hex>" with an explicit position_intent.
 - summary.py: daily P&L printout.
+- logging_setup.py: log/summary timestamps in Pacific (Daniel is on the
+  west coast). Display only — market hours stay in New York time; never
+  move is_market_hours to Pacific (it would trade 12:30-7pm ET).
 - .github/workflows/wheel.yml: cron + workflow_dispatch from main; the
   bot's is_market_hours() decides whether to act. Includes keepalive commit.
 
