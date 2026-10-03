@@ -23,6 +23,13 @@ adding something means editing or replacing something — not appending.
   profit and roll immediately. Cash-secured only, 1 contract.
 - Build plan: docs/kiln-build-prompt.md, phases 0-6, stop for Daniel's
   review after each. Phase 0 (4 bug fixes) done on branch phase0-bug-fixes.
+- Research 2026-10-03 (research/, run note juno-37): the basic wheel kept
+  ~63% of NVDA's CAGR but ~90% of its max drawdown (2016-26 model, -59%);
+  premium was only ~18% of 2024-26 profit (most came from holding assigned
+  shares). Both real and model data favor 30-45 DTE and closer strikes;
+  skipping earnings didn't help; a 200-day filter on new puts never fires
+  (already assigned by then). Basis-anchored vs spot-based calls is a
+  regime tradeoff (keeps rallies vs avoids being stuck). Not yet decided.
 - Daniel approves rules, not trades: once a rule set is picked the bot
   runs fully automatically. Never add per-trade confirmation steps.
 
@@ -37,6 +44,8 @@ adding something means editing or replacing something — not appending.
   Quote(bid, ask, timestamp); all orders are DAY limit orders tagged
   client_order_id "wheelbot-<hex>" with an explicit position_intent.
 - summary.py: daily P&L printout.
+- research/: throwaway study scripts (separate venv, data gitignored).
+  Not the Phase 2 backtester: doesn't reuse the bot's own functions.
 - logging_setup.py: log/summary timestamps in Pacific (Daniel is on the
   west coast). Display only — market hours stay in New York time; never
   move is_market_hours to Pacific (it would trade 12:30-7pm ET).
@@ -71,6 +80,13 @@ adding something means editing or replacing something — not appending.
 - Option data is the free "indicative" feed only (OPRA agreement not
   signed). Quotes ~0-5s old; snapshots include IV and greeks. Its prices
   can be non-monotonic across strikes — sanity-check before trusting.
+- Historical option bars (free): from ~2024-01, trade-based OHLC (no
+  bid/ask), illiquid strikes skip days, pre-2024-06-10 under pre-split
+  symbols. A request whose end is within ~15 min of now gets 403 "OPRA
+  agreement is not signed". Expired contracts: GetOptionContractsRequest
+  status=INACTIVE. Fetch 100 symbols per request (12k contracts ~2 min).
+- Earnings dates: SEC EDGAR 8-K item 2.02 filings (research/fetch_data.py);
+  NVDA reports after the close, so the reaction is the next trading day.
 - get_put_strike silently lowers the strike to whatever capital allows.
   With capital short (e.g. a put already open), it targets junk far-OTM
   strikes; today only the zero-bid / wide-spread checks stop a sale.
