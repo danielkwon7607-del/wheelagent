@@ -19,3 +19,7 @@ logs/
 
 # Outside-trigger setup secrets (setup_trigger.py)
 .env.trigger
+
+# Research data and venv
+research/data/
+research/.venv/

@@ -1,0 +1,7 @@
+pandas
+numpy
+matplotlib
+alpaca-py==0.38.0
+python-dotenv
+pytz
+requests
