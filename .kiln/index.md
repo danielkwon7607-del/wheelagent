@@ -73,6 +73,9 @@ adding something means editing or replacing something — not appending.
   branch; merge outside market hours and only after Daniel's review.
 - Wheel Lab look is Daniel's pick (2026-10-05): Robinhood/TradingView stock
   page, neutral ink/paper, green/pink only for up/down, no blue, calm.
+  Benchmark lines (his pick): NVDA forest green, SPY black (white in
+  dark), T-bills dotted gold, bot dashed gray. Gold vs green fails CVD in
+  dark mode, so keep the dots/dashes + legend + price tags.
   He rejected a terminal look and a bubbly glass look before this.
 - The bot only cancels its own (wheelbot-) orders. Any other open NVDA
   order blocks it until gone — never auto-cancel manual orders.
