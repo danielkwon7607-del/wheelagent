@@ -101,7 +101,7 @@
     }
     return {
       L, n, day, S, dayIndex, rv, chains,
-      nvdaTR: Float64Array.from(L.nvdaTR), spyTR: Float64Array.from(L.spyTR), tbill: Float64Array.from(L.tbill),
+      nvdaTR: Float64Array.from(L.nvdaTR), spyTR: Float64Array.from(L.spyTR), costTR: Float64Array.from(L.costTR || L.spyTR), tbill: Float64Array.from(L.tbill),
       earnings: L.earnings.map(epochDay), barCache: new Map(), dates: L.dates,
     };
   };
@@ -336,16 +336,17 @@
 
   // ---------- benchmarks & metrics ----------
   E.benchmarks = function (D, i0, i1) {
-    const len = i1 - i0 + 1, nv = new Float64Array(len), sp = new Float64Array(len), tbc = new Float64Array(len);
+    const len = i1 - i0 + 1, nv = new Float64Array(len), sp = new Float64Array(len), co = new Float64Array(len), tbc = new Float64Array(len);
     let v = CAP;
     for (let k = 0; k < len; k++) {
       const i = i0 + k;
       nv[k] = CAP * D.nvdaTR[i] / D.nvdaTR[i0];
       sp[k] = CAP * D.spyTR[i] / D.spyTR[i0];
+      co[k] = CAP * D.costTR[i] / D.costTR[i0];
       if (k > 0) v *= 1 + D.tbill[i - 1] * (D.day[i] - D.day[i - 1]) / 360;
       tbc[k] = v;
     }
-    return { nvda: nv, spy: sp, tbill: tbc };
+    return { nvda: nv, spy: sp, cost: co, tbill: tbc };
   };
 
   function mean(a) { let s = 0; for (const x of a) s += x; return s / a.length; }

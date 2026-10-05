@@ -82,6 +82,7 @@ data = {
     "nvda": col(w.NVDA),
     "nvdaTR": col(w.NVDA_TR),
     "spyTR": col(w.SPY_TR),
+    "costTR": col(w.COST_TR),
     "tbill": tbill,
     "earnings": earnings,
     "chains": chains,

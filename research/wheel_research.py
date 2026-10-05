@@ -33,6 +33,7 @@ NVDA = _series(_stock_split, "NVDA")
 NVDA_OPEN = _series(_stock_split, "NVDA", "open")
 NVDA_TR = _series(_stock_all, "NVDA")
 SPY_TR = _series(_stock_all, "SPY")
+COST_TR = _series(_stock_all, "COST")
 _tb = pd.read_pickle(os.path.join(DATA, "tbill.pkl"))
 TBILL = pd.Series(_tb.rate.values / 100, index=pd.to_datetime(_tb.date).dt.date)
 

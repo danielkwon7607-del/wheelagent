@@ -34,6 +34,7 @@
   --cmp-nvda: #1f6b2a;
   --cmp-spy: #111316;
   --cmp-tbill: #c98500;
+  --cmp-cost: #a0522d;
   --st-put: #1d8fa8;
   --st-call: #7b61ff;
   --st-stuck: #e5484d;
@@ -52,7 +53,7 @@
     --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
     --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
     --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-    --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
+    --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500; --cmp-cost: #9c5a3c;
     --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
     --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -64,7 +65,7 @@
   --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
   --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
   --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-  --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
+  --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500; --cmp-cost: #9c5a3c;
   --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
   --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -479,7 +480,7 @@ function readColors() {
   const cs = getComputedStyle(root), g = (v) => cs.getPropertyValue(v).trim();
   return {
     accent: g("--accent"), up: g("--up"), down: g("--down"), upInk: g("--up-ink"), downInk: g("--down-ink"),
-    bot: g("--cmp-bot"), nvda: g("--cmp-nvda"), spy: g("--cmp-spy"), tbill: g("--cmp-tbill"),
+    bot: g("--cmp-bot"), nvda: g("--cmp-nvda"), spy: g("--cmp-spy"), tbill: g("--cmp-tbill"), cost: g("--cmp-cost"),
     put: g("--st-put"), call: g("--st-call"), stuck: g("--st-stuck"), cash: g("--st-cash"),
     ink: g("--ink"), ink2: g("--ink-2"), muted: g("--muted"), line: g("--line"), line2: g("--line-2"), bg: g("--bg"), panel: g("--panel"),
     good: g("--good"), warn: g("--warn"), serious: g("--serious"), critical: g("--critical"),
@@ -664,10 +665,12 @@ const CONCEPTS = {
   alpha: { g: "Reading results", t: "Alpha", s: "The yearly return left over after accounting for beta.",
     p: ["Take the strategy's return, remove the part its beta to a benchmark explains, and what's left is alpha. Positive alpha means the strategy added something beyond its market exposure.",
         "The t number says whether alpha stands out from day-to-day noise. Roughly, above 2 means it's unlikely to be pure chance in a single test."],
-    w: "Alpha vs NVDA is the one to watch: it asks whether the wheel beat simply holding a smaller amount of NVDA. Alpha vs SPY mostly picks up NVDA's own huge run, so it flatters the wheel.",
+    w: "Alpha vs NVDA is the one to watch: it asks whether the wheel beat simply holding a smaller amount of NVDA. Alpha vs SPY mostly picks up NVDA's own huge run, so it flatters the wheel. Alpha vs COST flatters it even more: the wheel barely moves with COST (beta near 0.1 on real prices), so COST explains almost none of its return and the NVDA exposure shows up as \"alpha\". Low beta plus big alpha usually means the wrong benchmark, not skill.",
     x: "The t number ignores how many settings you've tried. After many tries, trust the luck check instead. Option returns are lopsided, so treat t as a rough guide.", r: ["beta", "tries", "sharpe"] },
   benchmark: { g: "Reading results", t: "Benchmarks", s: "What simple alternatives would have done.",
-    p: ["The same $25k in NVDA, held. The same $25k in SPY, held. Or left in T-bills. A strategy is only worth running if it beats these after accounting for risk."], w: "", x: "", r: ["tbills", "sharpe"] },
+    p: ["The same $25k in NVDA, held. The same $25k in SPY, held. The same $25k in COST, held. Or left in T-bills. A strategy is only worth running if it beats these after accounting for risk."],
+    w: "COST (Costco) is the steady one: a strong stock that moves far less than NVDA and wasn't part of the AI trade. It asks whether a boring stock gave a similar smooth ride.",
+    x: "A benchmark never changes your own numbers, only the comparison. Choosing a benchmark because it makes your results look good is called benchmark-shopping, and it's a form of fooling yourself.", r: ["tbills", "sharpe", "beta"] },
   tbills: { g: "Reading results", t: "T-bills", s: "The return for taking no risk.",
     p: ["Short-term US government debt, about 4% a year in 2026. Idle cash in the lab earns the T-bill rate, and Sharpe is measured above it."], w: "", x: "", r: ["benchmark"] },
   attribution: { g: "Reading results", t: "Where the money came from", s: "Premium, stock moves, or interest.",
@@ -763,7 +766,7 @@ const WATCH = [
 
 // ======================= state & engine glue =======================
 const st = { mode: "real", cfg: clone(E.BOT_RULES), log: { real: false, model: true }, range: { real: "ALL", model: "ALL" },
-  cmp: { bot: true, nvda: true, spy: true, tbill: true }, blind: false, revealed: false, trace: "all", tab: "backtest" };
+  cmp: { bot: true, nvda: true, spy: true, cost: true, tbill: true }, blind: false, revealed: false, trace: "all", tab: "backtest" };
 let seen = new Set();
 try { seen = new Set(JSON.parse(localStorage.getItem("wheellab.tries") || "[]")); } catch (e) { /* storage unavailable */ }
 const cache = new Map();
@@ -826,18 +829,18 @@ function render() {
   root.classList.toggle("is-down", run.eq[end] < run.eq[k0]);
   C = readColors(); Dots.setColor(C.accent);
   const m = metricsOf(res, run.eq, 0, end), mb = metricsOf(base, base.run.eq, 0, end);
-  const mn = metricsOf(res, res.bench.nvda, 0, end), ms = metricsOf(res, res.bench.spy, 0, end);
+  const mn = metricsOf(res, res.bench.nvda, 0, end), ms = metricsOf(res, res.bench.spy, 0, end), mc = metricsOf(res, res.bench.cost, 0, end);
   const stats = statsUpTo(run, end), lt = luckTest(res, base, 0, end);
-  const capN = E.capm(run.eq, res.bench.nvda, res.bench.tbill, 0, end), capS = E.capm(run.eq, res.bench.spy, res.bench.tbill, 0, end);
+  const capN = E.capm(run.eq, res.bench.nvda, res.bench.tbill, 0, end), capS = E.capm(run.eq, res.bench.spy, res.bench.tbill, 0, end), capC = E.capm(run.eq, res.bench.cost, res.bench.tbill, 0, end);
   const ev = E.tradeEV(end >= run.len - 1 ? run.trades : run.trades.filter((t) => t.k1 <= end));
   $("#who").textContent = view.isBot ? "The bot's rules" : "Your rules";
   $("#who-mode").textContent = `· ${mode === "real" ? "Real prices" : "Model"}${blindNow ? " · design period" : ""}`;
   setHero(null);
   renderRangeBar(); renderCompare(null);
   renderCharts();
-  renderStats(m, mb, mn, stats, capN, capS, ev);
+  renderStats(m, mb, mn, mc, stats, capN, capS, capC, ev);
   $("#stats-when").textContent = `${fmtDate(D.dates[run.i0])} to ${fmtDate(D.dates[run.i0 + end])}`;
-  renderStory(m, mb, mn, ms, lt, stats);
+  renderStory(m, mb, mn, ms, mc, lt, stats);
   renderStress(blindNow);
   renderGuard(m, lt, stats);
   renderOOS(split, blindNow);
@@ -870,7 +873,8 @@ function renderRangeBar() {
 function cmpSeries() {
   const { res, base, isBot } = view;
   return [["bot", "Bot's rules", C.bot, base.run.eq, !isBot, null], ["nvda", "NVDA held", C.nvda, res.bench.nvda, true, null],
-    ["spy", "SPY held", C.spy, res.bench.spy, true, null], ["tbill", "T-bills", C.tbill, res.bench.tbill, true, [1, 4]]].filter((s) => s[4]);
+    ["spy", "SPY held", C.spy, res.bench.spy, true, null], ["cost", "COST held", C.cost, res.bench.cost, true, [8, 3, 2, 3]],
+    ["tbill", "T-bills", C.tbill, res.bench.tbill, true, [1, 4]]].filter((s) => s[4]);
 }
 function lineKey(color, dash, fill) {
   const svg = svgEl("svg", { width: "22", height: "10", viewBox: "0 0 22 10", "aria-hidden": "true" });
@@ -883,7 +887,7 @@ function lineKey(color, dash, fill) {
 // The chart legend. The strategy is always shown; comparison lines toggle.
 function renderCompare(idx) {
   const host = $("#cmp"), k = idx == null ? view.end : idx;
-  const mainColor = view.isBot ? C.bot : C.accent, sig = [view.isBot, st.mode, mainColor, C.nvda, C.spy, C.bot].join("|");
+  const mainColor = view.isBot ? C.bot : C.accent, sig = [view.isBot, st.mode, mainColor, C.nvda, C.spy, C.bot, C.cost].join("|");
   if (host._sig !== sig) {
     host.innerHTML = ""; host._sig = sig;
     host.append(el("span", { class: "lg", "data-k": "main", style: `background:color-mix(in srgb, ${mainColor} 11%, transparent)` }, lineKey(mainColor, null, true), view.isBot ? "Bot's rules" : "Your rules", el("b", { class: "tnum" })));
@@ -1013,14 +1017,14 @@ function stat(label, concept, value, sub, cls = "") {
   return el("div", { class: "stat" }, el("div", { class: "k" }, label, el("button", { class: "q", "data-c": concept, "aria-label": "Explain " + label, text: "?" })),
     el("div", { class: "v " + cls, text: value }), el("div", { class: "s", text: sub }));
 }
-function renderStats(m, mb, mn, s, capN, capS, ev) {
+function renderStats(m, mb, mn, mc, s, capN, capS, capC, ev) {
   const host = $("#stats"); host.innerHTML = "";
   const bot = (x) => view.isBot ? "" : `Bot ${x} · `;
   host.append(
-    stat("Per year", "cagr", pct(m.cagr, 1, true), `${bot(pct(mb.cagr))}NVDA ${pct(mn.cagr)}`),
+    stat("Per year", "cagr", pct(m.cagr, 1, true), `${bot(pct(mb.cagr))}NVDA ${pct(mn.cagr)} · COST ${pct(mc.cagr)}`),
     stat("Worst drop", "maxdd", pct(m.maxDD), m.recovery != null ? `Recovered in ${m.recovery} days` : "Not recovered yet"),
-    stat("Sharpe", "sharpe", num(m.sharpe), `${bot(num(mb.sharpe))}NVDA ${num(mn.sharpe)}`),
-    stat("Bumpiness", "vol", pct(m.vol, 0), `NVDA ${pct(mn.vol, 0)} a year`),
+    stat("Sharpe", "sharpe", num(m.sharpe), `${bot(num(mb.sharpe))}NVDA ${num(mn.sharpe)} · COST ${num(mc.sharpe)}`),
+    stat("Bumpiness", "vol", pct(m.vol, 0), `NVDA ${pct(mn.vol, 0)} · COST ${pct(mc.vol, 0)} a year`),
     stat("Worst month", "worstmonth", pct(m.worstMonth), `Bad days avg ${pct(m.cvar5, 2)}`),
     stat("No-income days", "stuck", pct(s.stuckDays, 0), `Holding shares ${pct(s.shareDays, 0)} of days`),
     stat("Trades", "winrate", String(s.trades), `${s.assigned} assigned · ${s.called} called away`),
@@ -1035,22 +1039,27 @@ function renderStats(m, mb, mn, s, capN, capS, ev) {
       real ? `${pct(ev.winRate, 0)} × ${money(ev.avgWin)}, ${pct(lossRate, 0)} × ${money(ev.avgLoss)}`
            : `${pct(ev.winRate, 0)} × ${pct(ev.avgWinPct, 2, true)}, ${pct(lossRate, 0)} × ${pct(ev.avgLossPct, 2)} of capital at risk`));
   }
+  const move = (b, who) => `${num(b, 2)}% per 1% ${who} move`;
   host.append(
-    stat("Beta to NVDA", "beta", num(capN.beta), `Beta to SPY ${num(capS.beta)}`),
+    stat("Beta to NVDA", "beta", num(capN.beta), move(capN.beta, "NVDA")),
+    stat("Beta to SPY", "beta", num(capS.beta), move(capS.beta, "SPY")),
+    stat("Beta to COST", "beta", num(capC.beta), move(capC.beta, "COST")),
+    stat("Sortino", "sortino", num(m.sortino), `NVDA ${num(mn.sortino)} · COST ${num(mc.sortino)}`),
     stat("Alpha vs NVDA", "alpha", `${pct(capN.alpha, 1, true)}/yr`, noise(capN.t)),
     stat("Alpha vs SPY", "alpha", `${pct(capS.alpha, 1, true)}/yr`, noise(capS.t)),
+    stat("Alpha vs COST", "alpha", `${pct(capC.alpha, 1, true)}/yr`, noise(capC.t)),
   );
 }
 function pill(text, kind, icon) {
   const col = { good: C.good, warn: C.warn, serious: C.serious, critical: C.critical, muted: C.muted }[kind] || C.muted;
   return el("span", { class: "pill" }, el("span", { class: "ic", style: `background:${col}`, text: icon }), text);
 }
-function renderStory(m, mb, mn, ms, lt, stats) {
+function renderStory(m, mb, mn, ms, mc, lt, stats) {
   const v1 = $("#verdict-1"); v1.innerHTML = "";
   v1.append(el("strong", { text: view.isBot ? "The bot's rules" : "Your rules" }), ` made ${pct(m.cagr)} a year with a worst drop of ${pct(m.maxDD)}. `,
     ...(view.isBot ? [] : [`The bot's rules made ${pct(mb.cagr)} with a worst drop of ${pct(mb.maxDD)}. `]),
-    `Just holding NVDA made ${pct(mn.cagr)} (worst drop ${pct(mn.maxDD)}), and SPY made ${pct(ms.cagr)} (${pct(ms.maxDD)}).`);
-  $("#verdict-2").textContent = view.isBot ? "Change a setting in the Strategy panel to test an idea. Everything is compared with these rules and with just holding NVDA, SPY or T-bills."
+    `Just holding NVDA made ${pct(mn.cagr)} (worst drop ${pct(mn.maxDD)}), SPY made ${pct(ms.cagr)} (${pct(ms.maxDD)}), and steady COST made ${pct(mc.cagr)} (${pct(mc.maxDD)}).`);
+  $("#verdict-2").textContent = view.isBot ? "Change a setting in the Strategy panel to test an idea. Everything is compared with these rules and with just holding NVDA, SPY, COST or T-bills."
     : `Risk-adjusted, your rules are ${m.sharpe > mb.sharpe ? "better" : "worse"} than the bot's (Sharpe ${num(m.sharpe)} vs ${num(mb.sharpe)}). ` +
       (lt.diff <= 0 ? "" : lt.survives ? `The edge is bigger than luck would produce after ${lt.N} tries.` : `After ${lt.N} tries, an edge this size could still be luck.`);
   const p = $("#verdict-pills"); p.innerHTML = "";
@@ -1069,7 +1078,7 @@ function sbar(v, scale) {
 }
 function renderStress(blindNow) {
   const { res, base, isBot } = view, t = $("#stress"); t.innerHTML = "";
-  const cols = [[isBot ? "Bot" : "Yours", res.run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ["NVDA", res.bench.nvda], ["SPY", res.bench.spy]];
+  const cols = [[isBot ? "Bot" : "Yours", res.run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ["NVDA", res.bench.nvda], ["SPY", res.bench.spy], ["COST", res.bench.cost]];
   t.append(el("thead", {}, el("tr", {}, el("th", { text: "Period" }), ...cols.map(([h]) => el("th", { text: h })))));
   const tb = el("tbody"), splitIso = E.WINDOWS[st.mode].split;
   for (const [name, a, b] of E.REGIMES[st.mode]) {
@@ -1177,7 +1186,7 @@ function renderAttribution() {
 }
 function renderYearly() {
   const { res, base, end, isBot } = view, run = res.run, t = $("#yearly"); t.innerHTML = "";
-  const cols = [[isBot ? "Bot" : "Yours", run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ["NVDA", res.bench.nvda], ["SPY", res.bench.spy]];
+  const cols = [[isBot ? "Bot" : "Yours", run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ["NVDA", res.bench.nvda], ["SPY", res.bench.spy], ["COST", res.bench.cost]];
   t.append(el("thead", {}, el("tr", {}, el("th", { text: "Year" }), ...cols.map(([h]) => el("th", { text: h })))));
   const tb = el("tbody");
   let start = 0;
