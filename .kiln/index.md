@@ -46,6 +46,11 @@ adding something means editing or replacing something — not appending.
 - summary.py: daily P&L printout.
 - research/: throwaway study scripts (separate venv, data gitignored).
   Not the Phase 2 backtester: doesn't reuse the bot's own functions.
+- lab/: Wheel Lab, a browser backtester (engine.js + index.html). Published
+  at https://claude.ai/artifact/LRmdj5dTBN7iruHbzEByP1 (republish from
+  lab/dist/wheel-lab.html with data.js + engine.js as files). engine.js must
+  match research/ on the original rules: run node lab/parity_test.js after
+  any engine change. Tries start at 40 (the research grid + model runs).
 - logging_setup.py: log/summary timestamps in Pacific (Daniel is on the
   west coast). Display only — market hours stay in New York time; never
   move is_market_hours to Pacific (it would trade 12:30-7pm ET).
@@ -97,5 +102,9 @@ adding something means editing or replacing something — not appending.
 - No earnings filter. NVDA reports ~late Nov; the bot will sell through it.
 - After assignment in a drop, "10% above cost basis" can be far OTM and
   pay ~nothing. No fallback or roll rule exists yet.
+- lab/index.html is a full document for local use; the artifact host adds
+  its own wrapper, so publish lab/dist/ from make_artifact.py. Locally there
+  is no [hidden] reset, so the page's CSS carries its own. uPlot charts need
+  explicit padding or a short chart gets a zero-height plot.
 - Alpaca rejects a cancel on an order that just filled; cancel_order
   returns False then, and the bot re-reads state instead of failing.
