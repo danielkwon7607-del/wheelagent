@@ -154,6 +154,7 @@ section.sec:first-child { border-top: 0; padding-top: 0; }
 .stat .k { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); font-weight: 500; }
 .stat .v { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
 .stat .s { font-size: 12.5px; color: var(--muted); }
+.stat-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; padding-top: 22px; padding-bottom: 2px; font-size: 14px; font-weight: 700; color: var(--ink); }
 .story { display: grid; gap: 12px; margin-top: 18px; }
 .story p { margin: 0; color: var(--ink-2); max-width: 78ch; }
 .story p strong { color: var(--ink); font-weight: 600; }
@@ -652,6 +653,19 @@ const CONCEPTS = {
   winrate: { g: "Reading results", t: "The win rate trap", s: "Winning most trades says little.",
     p: ["Short options win most of the time, so the win rate looks great. What matters is the average win against the size of the rare big losses."],
     w: "In 2024 to 2026 the bot's rules won 94% of trades. The average win was $59 and the worst trade lost $1,586.", x: "", r: ["worstmonth", "attribution"] },
+  ev: { g: "Reading results", t: "EV (expected value) per trade", s: "The average result of one option trade.",
+    p: ["Win rate times the average win, minus the loss rate times the average loss. Positive EV means the trades make money on average.", "In Real mode it's in dollars per contract. In the Model it's a percentage of the capital at risk, because the dollar size grows over the years."],
+    w: "The bot's rules on real prices won 94% of trades for about $59 each and lost about $585 on the rest, which nets out to roughly +$20 a trade. Small, positive, and very sensitive to the size of the rare losses.",
+    x: "It counts option trades only. When shares get called away, the call shows a loss that the share gain covers, and that share gain isn't in EV. \"Where the money came from\" has the full picture.", r: ["winrate", "attribution"] },
+  beta: { g: "Reading results", t: "Beta", s: "How much the account moves when a benchmark moves.",
+    p: ["A beta of 0.3 to NVDA means that on a day NVDA rises 1%, the account tends to rise about 0.3%, and the same on the way down. A beta of 1 moves one-for-one."],
+    w: "The bot's rules on real prices have a beta of about 0.3 to NVDA, because one contract covers only part of the $25k and a far-out put only partly tracks the stock. Fully invested in the Model it's about 0.6.",
+    x: "Beta jumps after assignment, when you hold the shares outright. The number here is an average over the whole period.", r: ["alpha", "benchmark"] },
+  alpha: { g: "Reading results", t: "Alpha", s: "The yearly return left over after accounting for beta.",
+    p: ["Take the strategy's return, remove the part its beta to a benchmark explains, and what's left is alpha. Positive alpha means the strategy added something beyond its market exposure.",
+        "The t number says whether alpha stands out from day-to-day noise. Roughly, above 2 means it's unlikely to be pure chance in a single test."],
+    w: "Alpha vs NVDA is the one to watch: it asks whether the wheel beat simply holding a smaller amount of NVDA. Alpha vs SPY mostly picks up NVDA's own huge run, so it flatters the wheel.",
+    x: "The t number ignores how many settings you've tried. After many tries, trust the luck check instead. Option returns are lopsided, so treat t as a rough guide.", r: ["beta", "tries", "sharpe"] },
   benchmark: { g: "Reading results", t: "Benchmarks", s: "What simple alternatives would have done.",
     p: ["The same $25k in NVDA, held. The same $25k in SPY, held. Or left in T-bills. A strategy is only worth running if it beats these after accounting for risk."], w: "", x: "", r: ["tbills", "sharpe"] },
   tbills: { g: "Reading results", t: "T-bills", s: "The return for taking no risk.",
@@ -814,12 +828,14 @@ function render() {
   const m = metricsOf(res, run.eq, 0, end), mb = metricsOf(base, base.run.eq, 0, end);
   const mn = metricsOf(res, res.bench.nvda, 0, end), ms = metricsOf(res, res.bench.spy, 0, end);
   const stats = statsUpTo(run, end), lt = luckTest(res, base, 0, end);
+  const capN = E.capm(run.eq, res.bench.nvda, res.bench.tbill, 0, end), capS = E.capm(run.eq, res.bench.spy, res.bench.tbill, 0, end);
+  const ev = E.tradeEV(end >= run.len - 1 ? run.trades : run.trades.filter((t) => t.k1 <= end));
   $("#who").textContent = view.isBot ? "The bot's rules" : "Your rules";
   $("#who-mode").textContent = `· ${mode === "real" ? "Real prices" : "Model"}${blindNow ? " · design period" : ""}`;
   setHero(null);
   renderRangeBar(); renderCompare(null);
   renderCharts();
-  renderStats(m, mb, mn, stats);
+  renderStats(m, mb, mn, stats, capN, capS, ev);
   $("#stats-when").textContent = `${fmtDate(D.dates[run.i0])} to ${fmtDate(D.dates[run.i0 + end])}`;
   renderStory(m, mb, mn, ms, lt, stats);
   renderStress(blindNow);
@@ -997,7 +1013,7 @@ function stat(label, concept, value, sub, cls = "") {
   return el("div", { class: "stat" }, el("div", { class: "k" }, label, el("button", { class: "q", "data-c": concept, "aria-label": "Explain " + label, text: "?" })),
     el("div", { class: "v " + cls, text: value }), el("div", { class: "s", text: sub }));
 }
-function renderStats(m, mb, mn, s) {
+function renderStats(m, mb, mn, s, capN, capS, ev) {
   const host = $("#stats"); host.innerHTML = "";
   const bot = (x) => view.isBot ? "" : `Bot ${x} · `;
   host.append(
@@ -1009,6 +1025,20 @@ function renderStats(m, mb, mn, s) {
     stat("No-income days", "stuck", pct(s.stuckDays, 0), `Holding shares ${pct(s.shareDays, 0)} of days`),
     stat("Trades", "winrate", String(s.trades), `${s.assigned} assigned · ${s.called} called away`),
     stat("Win rate", "winrate", pct(s.winRate, 0), `Avg ${money(s.avgWin)} · worst ${money(s.worst)}`),
+  );
+  host.append(el("div", { class: "stat-h" }, "Edge", el("button", { class: "q", "data-c": "alpha", "aria-label": "Explain alpha", text: "?" })));
+  const noise = (t) => `t ${num(t, 1)} · ${Math.abs(t) >= 2 ? "stands out from noise" : "within noise"}`;
+  const real = st.mode === "real";
+  if (ev) {
+    const lossRate = 1 - ev.winRate;
+    host.append(stat("EV per trade", "ev", real ? (ev.ev < 0 ? MINUS : "+") + money(Math.abs(ev.ev)) : pct(ev.evPct, 2, true),
+      real ? `${pct(ev.winRate, 0)} × ${money(ev.avgWin)}, ${pct(lossRate, 0)} × ${money(ev.avgLoss)}`
+           : `${pct(ev.winRate, 0)} × ${pct(ev.avgWinPct, 2, true)}, ${pct(lossRate, 0)} × ${pct(ev.avgLossPct, 2)} of capital at risk`));
+  }
+  host.append(
+    stat("Beta to NVDA", "beta", num(capN.beta), `Beta to SPY ${num(capS.beta)}`),
+    stat("Alpha vs NVDA", "alpha", `${pct(capN.alpha, 1, true)}/yr`, noise(capN.t)),
+    stat("Alpha vs SPY", "alpha", `${pct(capS.alpha, 1, true)}/yr`, noise(capS.t)),
   );
 }
 function pill(text, kind, icon) {

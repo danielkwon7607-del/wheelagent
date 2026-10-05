@@ -397,6 +397,37 @@
     };
   };
 
+  // CAPM regression of daily excess returns on a benchmark's: beta is the
+  // sensitivity, alpha the yearly return left over, t its signal-to-noise.
+  E.capm = function (curve, bench, rf, a, b) {
+    const x = [], y = [];
+    for (let k = a + 1; k <= b; k++) {
+      const r0 = rf[k] / rf[k - 1] - 1;
+      y.push(curve[k] / curve[k - 1] - 1 - r0); x.push(bench[k] / bench[k - 1] - 1 - r0);
+    }
+    const n = x.length, mx = mean(x), my = mean(y);
+    let sxx = 0, sxy = 0, syy = 0;
+    for (let i = 0; i < n; i++) { sxx += (x[i] - mx) ** 2; sxy += (x[i] - mx) * (y[i] - my); syy += (y[i] - my) ** 2; }
+    const beta = sxy / sxx, alphaD = my - beta * mx;
+    let sse = 0;
+    for (let i = 0; i < n; i++) sse += (y[i] - alphaD - beta * x[i]) ** 2;
+    const s2 = sse / (n - 2), seAlpha = Math.sqrt(s2 * (1 / n + mx * mx / sxx));
+    return { beta, alpha: alphaD * 252, t: alphaD / seAlpha, corr: sxy / Math.sqrt(sxx * syy) };
+  };
+
+  // Expected value per option trade, overall and split into wins and losses.
+  // pnlPct is relative to the capital at risk (strike x shares).
+  E.tradeEV = function (trades) {
+    if (!trades.length) return null;
+    const pct = trades.map((t) => t.pnl / (t.K * t.qty)), wins = trades.filter((t) => t.pnl > 0), losses = trades.filter((t) => t.pnl <= 0);
+    const winPct = pct.filter((_, i) => trades[i].pnl > 0), lossPct = pct.filter((_, i) => trades[i].pnl <= 0);
+    return {
+      ev: mean(trades.map((t) => t.pnl)), evPct: mean(pct), winRate: wins.length / trades.length,
+      avgWin: wins.length ? mean(wins.map((t) => t.pnl)) : 0, avgLoss: losses.length ? mean(losses.map((t) => t.pnl)) : 0,
+      avgWinPct: winPct.length ? mean(winPct) : 0, avgLossPct: lossPct.length ? mean(lossPct) : 0,
+    };
+  };
+
   // Sharpe after accounting for how many configurations were tried: the
   // expected best of N lucky draws is subtracted (deflated-Sharpe style).
   E.luckAdjusted = function (sr, years, trials) {
