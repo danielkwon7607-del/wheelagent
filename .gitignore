@@ -23,3 +23,7 @@ logs/
 # Research data and venv
 research/data/
 research/.venv/
+
+# Wheel Lab generated files
+lab/data.js
+lab/dist/

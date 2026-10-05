@@ -1,0 +1,1297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wheel Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: an instrument panel. A fixed lever rail on the left, readouts and
+   scopes on the right; collapses to one column on phones. Dark by design. */
+:root {
+  color-scheme: dark;
+  --bg: #090e13;
+  --grid: rgba(120, 160, 190, 0.035);
+  --panel: #0f161d;
+  --panel-2: #141e27;
+  --line: #1c2834;
+  --line-2: #2a3946;
+  --ink: #e4ecf2;
+  --ink-2: #a4b2bf;
+  --muted: #6c7d8c;
+  --accent: #1fa9a4;
+  --accent-wash: rgba(31, 169, 164, 0.12);
+  --bot: #c98500;
+  --nvda: #a7b3bf;
+  --spy: #74818e;
+  --tbill: #4f5b67;
+  --st-put: #3987e5;
+  --st-call: #199e70;
+  --st-stuck: #d95926;
+  --st-cash: #2b3742;
+  --good: #0ca30c;
+  --warn: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --f-display: "Chakra Petch", "IBM Plex Sans", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 6px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+[hidden] { display: none !important; }
+body {
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+  color: var(--ink);
+  font: 14px/1.5 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); }
+.num { font-variant-numeric: tabular-nums; }
+.eyebrow { font: 500 11px/1.2 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+  padding: 10px 20px; background: rgba(9, 14, 19, 0.92); backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.glyph { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--accent); position: relative; }
+.glyph::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; border: 2px dashed var(--line-2); }
+.brand h1 { font: 600 17px/1 var(--f-display); letter-spacing: 0.16em; }
+.brand .sub { font: 400 11px/1 var(--f-mono); color: var(--muted); letter-spacing: 0.06em; }
+.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; background: var(--panel); }
+.seg button { border: 0; background: transparent; padding: 6px 11px; cursor: pointer; color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+.seg button + button { border-left: 1px solid var(--line-2); }
+.seg button[aria-pressed="true"] { background: var(--accent-wash); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.seg button:hover:not([aria-pressed="true"]):not(:disabled) { background: var(--panel-2); }
+.seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+.seg.wide { display: flex; } .seg.wide button { flex: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border: 1px solid var(--line-2); border-radius: 999px; font: 500 12px/1.2 var(--f-mono); color: var(--ink-2); background: var(--panel); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.q { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-2); background: transparent; color: var(--muted); font: 600 11px/1 var(--f-mono); cursor: pointer; padding: 0; flex: none; }
+.q:hover { color: var(--ink); border-color: var(--accent); }
+
+/* ---------- layout ---------- */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; padding-inline: 20px; padding-block: 20px 48px; max-width: 1560px; margin: 0 auto; }
+.rail { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 92px); overflow-y: auto; display: grid; gap: 14px; padding-right: 4px; }
+main { min-width: 0; display: grid; gap: 18px; align-content: start; }
+@media (max-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); padding-inline: 16px; }
+  .rail { position: static; max-height: none; }
+}
+
+.panel { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.panel::before, .panel::after { content: ""; position: absolute; width: 9px; height: 9px; pointer-events: none; }
+.panel::before { top: -1px; left: -1px; border-top: 1px solid var(--accent); border-left: 1px solid var(--accent); }
+.panel::after { bottom: -1px; right: -1px; border-bottom: 1px solid var(--line-2); border-right: 1px solid var(--line-2); }
+.ph { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.ph h2 { font: 600 15px/1.2 var(--f-display); letter-spacing: 0.04em; }
+.ph .spacer { margin-left: auto; }
+.note { color: var(--muted); font-size: 12.5px; }
+
+/* ---------- levers ---------- */
+.lever { display: grid; gap: 8px; padding-block: 12px; border-top: 1px solid var(--line); }
+.lever:first-of-type { border-top: 0; padding-top: 0; }
+.lever-h { display: flex; align-items: center; gap: 8px; }
+.lever-h label, .lever-h span.t { font-weight: 600; font-size: 13px; }
+.lever-h .val { margin-left: auto; font: 500 12px var(--f-mono); color: var(--ink-2); }
+.lever.changed .lever-h label::after, .lever.changed .lever-h span.t::after { content: "changed"; margin-left: 8px; font: 500 10px var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.lever.off { opacity: 0.45; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+select { width: 100%; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--r); padding: 6px 8px; }
+.btn { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: var(--r); padding: 7px 12px; cursor: pointer; font-size: 13px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent-wash); border-color: var(--accent); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--accent); margin-top: 3px; }
+.meter { display: flex; gap: 3px; }
+.meter i { flex: 1; height: 6px; border-radius: 2px; background: var(--line-2); }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: transparent; padding: 10px 14px; cursor: pointer; color: var(--muted); font: 600 13px var(--f-display); letter-spacing: 0.06em; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* ---------- verdict & tiles ---------- */
+.verdict { display: grid; gap: 10px; }
+.verdict p { margin: 0; max-width: 90ch; color: var(--ink-2); }
+.verdict p strong { color: var(--ink); font-weight: 600; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font: 500 12px/1.3 var(--f-body); border: 1px solid var(--line-2); background: var(--panel-2); }
+.pill .ic { font: 600 12px var(--f-mono); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 4px; align-content: start; }
+.tile .lab { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+.tile .v { font: 600 26px/1.15 var(--f-body); letter-spacing: -0.01em; }
+.tile .s { font: 400 12px/1.4 var(--f-mono); color: var(--muted); }
+
+/* ---------- charts ---------- */
+.readout { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2); font: 12px/1.4 var(--f-mono); min-height: 36px; }
+.readout .it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.readout .key { width: 12px; height: 2px; border-radius: 1px; }
+.readout b { font-weight: 500; color: var(--ink); }
+.readout .lbl { color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-2); }
+.legend .it { display: inline-flex; align-items: center; gap: 6px; }
+.legend .key { width: 14px; height: 2px; border-radius: 1px; }
+.legend .sw { width: 10px; height: 10px; border-radius: 2px; }
+.chart { width: 100%; min-width: 0; }
+.chart-label { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; font-size: 12.5px; color: var(--ink-2); }
+.uplot { width: 100% !important; font-family: var(--f-mono); }
+.u-over { cursor: crosshair; }
+
+/* ---------- tables ---------- */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font: 500 11px var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+td { font-variant-numeric: tabular-nums; font-family: var(--f-mono); font-size: 12.5px; }
+td:first-child { font-family: var(--f-body); font-size: 13px; color: var(--ink-2); }
+td.hidden-val { color: var(--muted); font-style: italic; }
+.bar-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.mini { width: 54px; height: 6px; position: relative; background: var(--line); border-radius: 2px; flex: none; }
+.mini i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; }
+@media (max-width: 420px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- guard ---------- */
+.guard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; }
+@media (max-width: 900px) { .guard { grid-template-columns: minmax(0, 1fr); } }
+.gstat { display: grid; gap: 14px; align-content: start; }
+.gstat .big { font: 600 22px/1.2 var(--f-body); }
+.gline { display: grid; gap: 4px; }
+.heat { display: grid; grid-template-columns: 64px repeat(5, minmax(0, 1fr)); gap: 3px; font: 12px var(--f-mono); }
+.heat .hd { color: var(--muted); display: flex; align-items: center; justify-content: center; padding: 4px 0; font-size: 11px; }
+.heat .hd.rowh { justify-content: flex-start; }
+.heat button { border: 0; border-radius: 3px; padding: 10px 2px; cursor: pointer; font: 500 12px var(--f-mono); position: relative; min-width: 0; }
+.heat button.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+.heat button:hover { filter: brightness(1.15); }
+.heat button .best { position: absolute; top: 1px; right: 3px; font-size: 9px; }
+.ramp { display: flex; align-items: center; gap: 8px; font: 11px var(--f-mono); color: var(--muted); margin-top: 8px; }
+.ramp span.r { display: flex; height: 8px; width: 120px; border-radius: 2px; overflow: hidden; }
+.ramp span.r i { flex: 1; }
+
+/* ---------- attribution ---------- */
+.attr { display: grid; gap: 10px; }
+.attr .a { display: grid; grid-template-columns: minmax(120px, 190px) minmax(0, 1fr) 76px; gap: 10px; align-items: center; font-size: 13px; }
+.attr .track { position: relative; height: 10px; }
+.attr .track::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line-2); }
+.attr .track i { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 2px; }
+.attr .amt { font: 500 12.5px var(--f-mono); text-align: right; }
+
+/* ---------- trace ---------- */
+.trace { height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r); background: #070b0f; font: 12px/1.55 var(--f-mono); padding: 6px 0; }
+.trace .ln { display: grid; grid-template-columns: 92px 92px minmax(0, 1fr); gap: 10px; padding: 1px 12px; }
+.trace .ln.future { opacity: 0.18; }
+.trace .ln.now { background: var(--accent-wash); }
+.trace .d { color: var(--muted); }
+.trace .t { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.06em; }
+.trace .x { color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .trace .ln { grid-template-columns: 82px minmax(0, 1fr); } .trace .t { display: none; } }
+
+/* ---------- research log & concepts ---------- */
+.log { display: grid; gap: 14px; }
+.entry { display: grid; gap: 10px; }
+.entry .eh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.entry h3 { font: 600 15px/1.3 var(--f-display); letter-spacing: 0.02em; }
+.entry p { margin: 0; color: var(--ink-2); max-width: 80ch; }
+.entry .mt { display: flex; flex-wrap: wrap; gap: 8px 20px; font: 12.5px var(--f-mono); color: var(--ink-2); }
+.entry .mt b { color: var(--ink); font-weight: 500; }
+.concepts { display: grid; gap: 22px; }
+.cgroup h3 { font: 600 14px var(--f-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
+.clist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.clist button { text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: var(--r); padding: 10px 12px; cursor: pointer; display: grid; gap: 2px; }
+.clist button:hover { border-color: var(--accent); }
+.clist b { font-weight: 600; font-size: 13.5px; }
+.clist span { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+
+/* ---------- drawer ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 40; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); z-index: 41; background: var(--panel); border-left: 1px solid var(--line-2); padding: calc(env(safe-area-inset-top, 0px) + 18px) 22px calc(env(safe-area-inset-bottom, 0px) + 24px); overflow-y: auto; display: grid; gap: 14px; align-content: start; }
+.drawer h2 { font: 600 20px/1.25 var(--f-display); letter-spacing: 0.02em; }
+.drawer p { margin: 0; color: var(--ink-2); line-height: 1.6; }
+.drawer .box { border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; background: var(--panel-2); display: grid; gap: 6px; }
+.drawer .box .eyebrow { color: var(--accent); }
+.dr-head { display: flex; align-items: center; justify-content: space-between; }
+.dr-close { border: 1px solid var(--line-2); background: transparent; border-radius: var(--r); padding: 4px 10px; cursor: pointer; }
+.related { display: flex; flex-wrap: wrap; gap: 6px; }
+.related button { border: 1px solid var(--line-2); background: transparent; border-radius: 999px; padding: 3px 10px; cursor: pointer; font-size: 12.5px; color: var(--ink-2); }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--accent); border-radius: var(--r); padding: 8px 14px; z-index: 50; font-size: 13px; }
+textarea.copy { width: 100%; height: 120px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line-2); border-radius: var(--r); font: 12px var(--f-mono); padding: 8px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* uPlot base (inlined: the page may not load external CSS) */
+.uplot, .uplot *, .uplot *::before, .uplot *::after {box-sizing: border-box;}.uplot {line-height: 1.5;width: min-content;}.u-wrap {position: relative;user-select: none;}.u-over, .u-under {position: absolute;}.u-under {overflow: hidden;}.uplot canvas {display: block;position: relative;width: 100%;height: 100%;}.u-axis {position: absolute;}.u-legend {display:none;}.u-select {background: rgba(255,255,255,0.05);position: absolute;pointer-events: none;}.u-cursor-x, .u-cursor-y {position: absolute;left: 0;top: 0;pointer-events: none;will-change: transform;}.u-hz .u-cursor-x, .u-vt .u-cursor-y {height: 100%;border-right: 1px solid #4c5f70;}.u-hz .u-cursor-y, .u-vt .u-cursor-x {width: 100%;border-bottom: 0;}.u-cursor-pt {position: absolute;top: 0;left: 0;border-radius: 50%;border: 0 solid;pointer-events: none;will-change: transform;background-clip: padding-box !important;}.u-axis.u-off, .u-select.u-off, .u-cursor-x.u-off, .u-cursor-y.u-off, .u-cursor-pt.u-off {display: none;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="glyph" aria-hidden="true"></span>
+    <div>
+      <h1>WHEEL LAB</h1>
+      <div class="sub">NVDA wheel · backtest &amp; stress test</div>
+    </div>
+  </div>
+  <div class="row">
+    <span class="eyebrow">Prices</span>
+    <div class="seg" role="group" aria-label="Price source">
+      <button id="mode-real" aria-pressed="true">Real · 2024–26</button>
+      <button id="mode-model" aria-pressed="false">Model · 2016–26</button>
+    </div>
+    <button class="q" data-c="realvsmodel" aria-label="Explain real prices vs model">?</button>
+  </div>
+  <div class="chips">
+    <span class="chip" title="The page's engine reproduces the Python research engine on six test cases"><span class="ic" style="color:var(--good)">✓</span>Engine matches Python <span id="parity">6/6</span><button class="q" data-c="parity" aria-label="Explain engine check">?</button></span>
+    <span class="chip"><span id="tries">Tries 40</span><button class="q" data-c="tries" aria-label="Explain tries">?</button></span>
+    <span class="chip" id="runtime">–</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="rail" aria-label="Strategy levers">
+    <section class="panel">
+      <div class="ph"><h2>Levers</h2><span class="spacer"></span><button class="btn" id="reset">Reset to bot's rules</button></div>
+      <div class="gline" style="margin-bottom:14px">
+        <div class="row" style="justify-content:space-between"><span class="eyebrow">Levers changed</span><span class="mono num" id="lever-count">0</span></div>
+        <div class="meter" id="lever-meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="note" id="lever-note">You're on the bot's current rules.</div>
+      </div>
+
+      <div class="lever" id="lv-put">
+        <div class="lever-h"><span class="t">Put strike</span><button class="q" data-c="strike" aria-label="Explain strike">?</button><span class="val" id="put-val"></span></div>
+        <div class="seg wide" role="group" aria-label="Put strike method">
+          <button id="put-m-otm" aria-pressed="true">% below price</button>
+          <button id="put-m-delta" aria-pressed="false">By delta</button>
+        </div>
+        <input type="range" id="put-otm" min="0" max="25" step="1" value="10" aria-label="Percent below price">
+        <input type="range" id="put-delta" min="0.05" max="0.45" step="0.05" value="0.20" aria-label="Put delta" hidden>
+        <div class="note"><button class="q" data-c="delta" aria-label="Explain delta" style="vertical-align:-4px">?</button> Delta ≈ chance the put ends up assigned.</div>
+      </div>
+
+      <div class="lever" id="lv-dte">
+        <div class="lever-h"><span class="t">Days to expiry</span><button class="q" data-c="dte" aria-label="Explain days to expiry">?</button><span class="val" id="dte-val"></span></div>
+        <div class="seg wide" role="group" aria-label="Days to expiry" id="dte-seg"></div>
+      </div>
+
+      <div class="lever" id="lv-tp">
+        <div class="lever-h"><span class="t">Take profit</span><button class="q" data-c="tp" aria-label="Explain take profit">?</button></div>
+        <div class="seg wide" role="group" aria-label="Take profit" id="tp-seg"></div>
+      </div>
+
+      <div class="lever" id="lv-loss">
+        <div class="lever-h"><span class="t">Cut losses</span><button class="q" data-c="loss" aria-label="Explain cut losses">?</button></div>
+        <div class="seg wide" role="group" aria-label="Cut losses" id="loss-seg"></div>
+      </div>
+
+      <div class="lever" id="lv-call">
+        <div class="lever-h"><label for="call-method">Covered calls</label><button class="q" data-c="basis" aria-label="Explain cost basis anchoring">?</button><span class="val" id="call-val"></span></div>
+        <select id="call-method">
+          <option value="basis">Above my cost basis (bot)</option>
+          <option value="spot">Above today's price</option>
+          <option value="delta">By delta</option>
+          <option value="hybrid">Hybrid: basis, delta when underwater</option>
+        </select>
+        <input type="range" id="call-otm" min="0" max="20" step="1" value="10" aria-label="Percent above">
+        <input type="range" id="call-delta" min="0.10" max="0.45" step="0.05" value="0.25" aria-label="Call delta" hidden>
+        <div id="call-under-wrap" hidden>
+          <div class="lever-h"><span class="note">Switch to delta when shares are this far underwater</span><span class="val" id="under-val"></span></div>
+          <input type="range" id="call-under" min="0.10" max="0.40" step="0.05" value="0.20" aria-label="Underwater threshold">
+        </div>
+      </div>
+
+      <div class="lever" id="lv-earn">
+        <div class="lever-h"><span class="t">Earnings</span><button class="q" data-c="earnings" aria-label="Explain earnings">?</button></div>
+        <div class="seg wide" role="group" aria-label="Earnings" id="earn-seg"></div>
+      </div>
+
+      <div class="lever" id="lv-vol">
+        <div class="lever-h"><span class="t">Only sell when options are rich</span><button class="q" data-c="volfilter" aria-label="Explain rich-options filter">?</button></div>
+        <div class="seg wide" role="group" aria-label="Rich options filter" id="vol-seg"></div>
+        <div class="note" id="vol-note" hidden>Needs real option prices. Switch to Real to use it.</div>
+      </div>
+
+      <div class="lever" id="lv-size">
+        <div class="lever-h"><span class="t">Contracts</span><button class="q" data-c="sizing" aria-label="Explain contracts">?</button></div>
+        <div class="seg wide" role="group" aria-label="Contracts" id="size-seg"></div>
+        <div class="note" id="size-note" hidden>The model is always fully invested.</div>
+      </div>
+
+      <div class="lever" id="lv-model">
+        <div class="lever-h"><span class="t">Model assumptions</span><button class="q" data-c="vrp" aria-label="Explain volatility risk premium">?</button></div>
+        <div class="lever-h"><span class="note">Put price vs realized vol</span><span class="val" id="pm-val"></span></div>
+        <input type="range" id="put-mult" min="0.90" max="1.40" step="0.01" value="1.13" aria-label="Put implied vol multiplier">
+        <div class="lever-h"><span class="note">Spread given up per trade</span><button class="q" data-c="spread" aria-label="Explain spread">?</button><span class="val" id="hs-val"></span></div>
+        <input type="range" id="half-spread" min="0.01" max="0.06" step="0.005" value="0.03" aria-label="Half spread">
+        <div class="note" id="model-note">Only used by the Model prices.</div>
+      </div>
+
+      <div class="lever">
+        <label class="check"><input type="checkbox" id="blind"> <span><b>Blind mode.</b> Hide the test period while designing. <button class="q" data-c="oos" aria-label="Explain design vs test period" style="vertical-align:-4px">?</button></span></label>
+      </div>
+      <div class="lever">
+        <button class="btn" id="copy">Copy these settings</button>
+        <div class="note">Paste them into the chat to have Claude look at an idea.</div>
+        <textarea class="copy" id="copy-box" readonly hidden aria-label="Settings to copy"></textarea>
+      </div>
+    </section>
+  </aside>
+
+  <main>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-backtest" aria-selected="true">Backtest</button>
+      <button role="tab" id="tab-log" aria-selected="false">Research log</button>
+      <button role="tab" id="tab-concepts" aria-selected="false">Concepts</button>
+    </nav>
+
+    <div id="view-backtest" style="display:grid;gap:18px">
+      <section class="panel verdict" aria-live="polite">
+        <div class="eyebrow" id="window-label"></div>
+        <p id="verdict-1"></p>
+        <p id="verdict-2"></p>
+        <div class="pills" id="verdict-pills"></div>
+      </section>
+
+      <section class="tiles" id="tiles"></section>
+
+      <section class="panel">
+        <div class="ph">
+          <h2>Account value</h2><span class="note">$25k start</span>
+          <span class="spacer"></span>
+          <label class="check" style="align-items:center"><input type="checkbox" id="logscale"> Log scale</label>
+          <button class="btn" id="replay">Replay run</button>
+        </div>
+        <div class="legend" id="legend-eq" style="margin-bottom:8px"></div>
+        <div class="readout" id="readout"></div>
+        <div class="chart" id="ch-eq"></div>
+        <div class="chart-label">Drop from peak <button class="q" data-c="maxdd" aria-label="Explain drawdown">?</button></div>
+        <div class="chart" id="ch-dd"></div>
+        <div class="chart-label">What the strategy held <button class="q" data-c="stuck" aria-label="Explain no-income days">?</button>
+          <span class="legend" id="legend-state" style="margin-left:8px"></span></div>
+        <div class="chart" id="ch-state"></div>
+        <p class="note" id="mode-note" style="margin:10px 0 0"></p>
+      </section>
+
+      <div class="grid2">
+        <section class="panel">
+          <div class="ph"><h2>Stress tests</h2><button class="q" data-c="benchmark" aria-label="Explain benchmarks">?</button><span class="spacer"></span><span class="note">Return during each period</span></div>
+          <div class="tbl-wrap"><table id="stress"></table></div>
+        </section>
+        <section class="panel">
+          <div class="ph"><h2>Design vs test period</h2><button class="q" data-c="oos" aria-label="Explain design vs test period">?</button></div>
+          <div class="tbl-wrap"><table id="oos"></table></div>
+          <p class="note" id="oos-note" style="margin:10px 0 0"></p>
+          <button class="btn" id="reveal" hidden style="margin-top:10px">Reveal the test period</button>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="ph"><h2>Overfitting guard</h2><button class="q" data-c="overfit" aria-label="Explain overfitting">?</button></div>
+        <div class="guard">
+          <div class="gstat">
+            <div class="gline">
+              <div class="row"><span class="eyebrow">Edge over the bot's rules, after luck</span><button class="q" data-c="tries" aria-label="Explain luck allowance">?</button></div>
+              <div class="big" id="luck-big">–</div>
+              <div class="note" id="luck-note"></div>
+            </div>
+            <div class="gline">
+              <div class="row"><span class="eyebrow">Neighbors</span><button class="q" data-c="plateau" aria-label="Explain plateau vs spike">?</button></div>
+              <div class="big" id="plateau-big">–</div>
+              <div class="note" id="plateau-note"></div>
+            </div>
+            <div class="gline">
+              <div class="row"><span class="eyebrow">Evidence</span><button class="q" data-c="sample" aria-label="Explain sample size">?</button></div>
+              <div class="note" id="sample-note"></div>
+            </div>
+          </div>
+          <div>
+            <div class="row" style="margin-bottom:8px"><span class="eyebrow">Robustness map · Sharpe of nearby settings</span></div>
+            <div class="heat" id="heat"></div>
+            <div class="ramp"><span>Lower</span><span class="r" id="ramp"></span><span>Higher Sharpe</span><span style="margin-left:auto">Click a cell to load it</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid2">
+        <section class="panel">
+          <div class="ph"><h2>Where the money came from</h2><button class="q" data-c="attribution" aria-label="Explain attribution">?</button></div>
+          <div class="attr" id="attr"></div>
+        </section>
+        <section class="panel">
+          <div class="ph"><h2>Year by year</h2><span class="spacer"></span><span class="note">Table view of the chart</span></div>
+          <div class="tbl-wrap"><table id="yearly"></table></div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="ph">
+          <h2>Engine trace</h2><span class="note">Every decision the backtest made</span>
+          <span class="spacer"></span>
+          <div class="seg" role="group" aria-label="Filter trace" id="trace-seg"></div>
+        </div>
+        <div class="trace" id="trace" tabindex="0" aria-label="Backtest event log"></div>
+      </section>
+    </div>
+
+    <div id="view-log" hidden>
+      <section class="panel" style="margin-bottom:14px">
+        <div class="ph"><h2>Research log</h2></div>
+        <p class="note" style="margin:0;max-width:80ch">What I tested, why, and what I concluded. The numbers are computed live by the same engine, so they always match the backtest. Load any entry to inspect it.</p>
+      </section>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div id="view-concepts" hidden>
+      <div class="concepts" id="concepts"></div>
+    </div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="dr-title">
+  <div class="dr-head"><span class="eyebrow" id="dr-group">Concept</span><button class="dr-close" id="dr-close">Close</button></div>
+  <h2 id="dr-title"></h2>
+  <div id="dr-body" style="display:grid;gap:12px"></div>
+</aside>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script>
+(function () {
+"use strict";
+const E = window.WheelEngine, L = window.LAB_DATA, D = E.prepare(L);
+const $ = (s) => document.querySelector(s);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const C = {
+  accent: css("--accent"), bot: css("--bot"), nvda: css("--nvda"), spy: css("--spy"), tbill: css("--tbill"),
+  put: css("--st-put"), call: css("--st-call"), stuck: css("--st-stuck"), cash: css("--st-cash"),
+  ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), line: css("--line"), line2: css("--line-2"), bg: css("--bg"),
+  good: css("--good"), warn: css("--warn"), serious: css("--serious"), critical: css("--critical"),
+};
+const RAMP = ["#0d366b", "#184f95", "#256abf", "#3987e5", "#6da7ec", "#9ec5f4"];
+const PRIOR_TRIES = 40;
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const MINUS = "−";
+const pct = (x, d = 1, sign = false) => Number.isFinite(x) ? (x < 0 ? MINUS : sign && x > 0 ? "+" : "") + Math.abs(x * 100).toFixed(d) + "%" : "–";
+const num = (x, d = 2) => Number.isFinite(x) ? (x < 0 ? MINUS : "") + Math.abs(x).toFixed(d) : "–";
+const money = (x) => {
+  if (!Number.isFinite(x)) return "–";
+  const a = Math.abs(x), s = x < 0 ? MINUS : "";
+  if (a >= 1e6) return s + "$" + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
+  if (a >= 1e4) return s + "$" + (a / 1e3).toFixed(1) + "k";
+  return s + "$" + Math.round(a).toLocaleString("en-US");
+};
+const fmtDate = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k === "style") n.style.cssText = v;
+    else if (k === "text") n.textContent = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) n.append(c);
+  return n;
+};
+
+// ======================= concepts =======================
+const CONCEPTS = {
+  wheel: { g: "The wheel", t: "The wheel", s: "Sell puts, get assigned, sell calls, repeat.",
+    p: ["A repeating cycle. You sell a put and collect cash. If the stock is below the strike at expiry, you buy 100 shares. Then you sell calls on those shares until they get bought away, and start over."],
+    w: "The bot runs it on NVDA with one contract at a time, in a paper account.",
+    x: "It feels safe because most trades win. The real risk sits in owning the shares during a drop.", r: ["csp", "cc", "assignment"] },
+  csp: { g: "The wheel", t: "Cash-secured put", s: "Get paid now to promise to buy shares at a set price.",
+    p: ["You promise to buy 100 shares at the strike price if the stock is below it at expiry, and you get paid a premium today.", "Cash-secured means the full cost (strike × 100) sits in your account so you can always pay."],
+    w: "A $207.50 put locks up $20,750 of the $25k.",
+    x: "Your downside is almost the same as owning the stock. Your upside is only the premium.", r: ["premium", "strike", "assignment"] },
+  cc: { g: "The wheel", t: "Covered call", s: "Sell someone the right to buy your shares higher.",
+    p: ["Once you own 100 shares, you sell a call: someone gets the right to buy them at the strike. You keep the premium. If the stock rises past the strike, your shares are sold at that price."],
+    w: "The bot sells calls 10% above what it paid for the shares.",
+    x: "It caps your upside. For a stock that can double in a year, that cap is expensive.", r: ["basis", "hybrid"] },
+  assignment: { g: "The wheel", t: "Assignment", s: "When an option ends in the money, the trade happens.",
+    p: ["A put that ends below its strike means you buy the shares at the strike. A call that ends above its strike means your shares are sold at the strike."],
+    w: "The lab checks assignment at the closing price on expiry day. Early assignment is ignored because NVDA's dividend is tiny.",
+    x: "Assignment after a sharp drop is how the wheel ends up holding shares worth far less than it paid.", r: ["csp", "stuck"] },
+  strike: { g: "The wheel", t: "Strike and how far out", s: "The contract price, and how far it sits from today's price.",
+    p: ["The strike is the price written in the contract. Out of the money (OTM) means a put strike below today's price, or a call strike above it.", "10% OTM on a $230 stock is a $207 put. Further out pays less premium and gets assigned less often."],
+    w: "The bot sells puts 10% below the price. On NVDA right now that's only about a 0.07 to 0.10 delta, which pays $50 to $125 per contract.",
+    x: "A fixed percentage takes very different risk in calm and wild markets. Delta adjusts for that.", r: ["delta", "premium"] },
+  premium: { g: "The wheel", t: "Premium", s: "The cash you receive for selling an option.",
+    p: ["It's paid up front and it's yours whatever happens next. It is payment for taking risk, so a bigger premium always means more risk."],
+    w: "The bot's puts have collected $0.48 to $1.54 per share ($48 to $154 per contract).",
+    x: "Premium collected is not profit. If the shares you were assigned are down more than the premium, you lost money.", r: ["attribution", "vrp"] },
+  dte: { g: "The wheel", t: "Days to expiry", s: "How long until the option expires.",
+    p: ["The lab picks the first Friday at least this many days away. Longer expiries pay more in total but less per day, and give a position more time to recover from a move."],
+    w: "The bot uses 14 days (so 14 to 20). In both the real and the model tests, 30 to 45 days had smaller drops.",
+    x: "Fewer, longer trades means fewer data points, so results are less certain.", r: ["theta", "sample"] },
+  delta: { g: "The wheel", t: "Delta", s: "How much the option moves per $1 in the stock. Roughly, the chance of assignment.",
+    p: ["Delta says how much the option's price moves when the stock moves $1. For a seller it doubles as a rough probability that the option ends in the money.", "A 0.20-delta put has about a 1 in 5 chance of being assigned."],
+    w: "Choosing strikes by delta keeps the risk steady when volatility changes. The bot's \"10% below\" rule is about 0.07 to 0.10 delta today.",
+    x: "Higher delta means more premium and more assignments. Both tests found closer strikes earned more, with more risk.", r: ["strike", "iv"] },
+  theta: { g: "The wheel", t: "Time decay", s: "Options lose value as expiry approaches.",
+    p: ["All else equal, an option is worth a little less each day. Sellers earn that decay. It speeds up in the last few weeks."],
+    w: "Short expiries decay fast, but leave little time to recover after a move against you.",
+    x: "Decay is steady and small. A single bad move can wipe out weeks of it.", r: ["dte"] },
+  iv: { g: "The wheel", t: "Implied volatility (IV)", s: "How much movement the option price assumes.",
+    p: ["The yearly movement, as a percentage, that today's option price implies. High IV means rich premiums.", "The lab works IV back out of real option prices with the Black-Scholes formula."],
+    w: "NVDA put IV at the bot's strikes was about 44% on average in 2024 to 2026.",
+    x: "IV jumps before earnings and during crashes. A rich premium usually means the market sees real risk.", r: ["rv", "vrp"] },
+  rv: { g: "The wheel", t: "Realized volatility", s: "How much the stock actually moved recently.",
+    p: ["Measured from daily price changes and expressed as a yearly percentage. The lab blends the last 20 and 60 trading days."],
+    w: "The model mode prices options as a multiple of realized volatility, calibrated on real trades.",
+    x: "", r: ["iv", "vrp"] },
+  vrp: { g: "The wheel", t: "Volatility risk premium", s: "Options tend to be priced for more movement than happens.",
+    p: ["The gap between implied and realized volatility is the seller's edge. Buyers pay for protection the way people pay for insurance."],
+    w: "For the bot's puts in 2024 to 2026, IV was above the movement that followed in 72% of trades. The model's default (1.13) is the calibrated ratio of put IV to realized volatility. Set it to 1.00 to see the wheel with no edge.",
+    x: "Research finds this edge is smaller for single stocks than for indexes, and it turns negative in crashes.", r: ["iv", "volfilter"] },
+  tp: { g: "The wheel", t: "Take profit", s: "Buy the option back early once you've captured part of the premium.",
+    p: ["Once the option has lost a set share of its value (the bot uses 50%), buy it back and sell a new one. It frees capital and shortens the time you're exposed."],
+    w: "Evidence is mixed. It helped in the model and hurt in some real-price tests. A published SPY wheel study found it hurt.",
+    x: "Each extra round trip pays the spread again.", r: ["roll", "spread"] },
+  loss: { g: "The wheel", t: "Cut losses", s: "Buy back an option that has moved against you.",
+    p: ["When the option's price reaches 2× or 3× what you sold it for, buy it back. The lab then opens a new one by the current rules, which is a roll."],
+    w: "On NVDA in 2024 to 2026 it hurt a lot. Prices often spiked and came back, so the rule locked in losses that would have recovered.",
+    x: "Protection that triggers on short spikes turns noise into realized losses.", r: ["roll", "tp"] },
+  roll: { g: "The wheel", t: "Rolling", s: "Close one option and open another in the same step.",
+    p: ["Usually later in time, and sometimes at a different strike. After a take-profit or a loss cut, the lab opens the next option the same day, the same way the bot does."],
+    w: "", x: "", r: ["tp", "loss"] },
+  earnings: { g: "The wheel", t: "Earnings", s: "Four reports a year that can move NVDA 10% to 25% overnight.",
+    p: ["NVDA reports after the close. Options cost more beforehand to reflect the gap risk. Selling through earnings collects more premium and takes that risk.", "Dates in the lab come from NVDA's SEC filings."],
+    w: "Skipping earnings lowered results in both tests, but the sample is small. Research suggests earnings moves are not reliably overpriced either.",
+    x: "", r: ["iv", "sample"] },
+  basis: { g: "The wheel", t: "Cost basis anchoring", s: "Only selling calls above what you paid for the shares.",
+    p: ["The bot only sells calls 10% above its cost. That feels safe because it never locks in a loss. After a big drop nobody pays for a call that far up, so the shares sit there earning nothing, sometimes for months.", "Selling calls above today's price instead keeps income coming, but can sell your shares near the bottom."],
+    w: "From 2016, the bot's rule left it holding shares with no income on 23% of days. Calls above today's price did badly in the 2024 to 2026 rally and well in the bear markets. It's a real tradeoff.",
+    x: "", r: ["hybrid", "stuck", "cc"] },
+  hybrid: { g: "The wheel", t: "Hybrid call rule", s: "Cost-basis rule normally, delta-based when deep underwater.",
+    p: ["Uses the bot's cost-basis rule until the shares fall more than a set percentage below cost. Then it sells calls by delta so the shares keep earning something."],
+    w: "A middle ground between the two call rules. Look at the 2022 bear market in the model to see the difference.", x: "", r: ["basis", "delta"] },
+  volfilter: { g: "The wheel", t: "Rich-options filter", s: "Only sell when IV is above realized volatility.",
+    p: ["Before selling a put, compare its implied volatility to NVDA's recent realized volatility. Only sell if IV is at least the chosen multiple.", "Research (Goyal and Saretto) finds options are cheap when IV is below realized volatility."],
+    w: "Fewer trades, aimed at the times you're paid best. It needs real option prices, so it only works in Real mode.", x: "", r: ["vrp", "iv"] },
+  sizing: { g: "The wheel", t: "Contracts", s: "How many contracts to sell at once.",
+    p: ["The bot sells one contract. When NVDA was around $120, one contract used about half of the $25k and the rest sat in T-bills.", "\"As many as $25k covers\" sells two when they fit."],
+    w: "More contracts means more premium and more risk. The model mode is always fully invested.", x: "", r: ["csp"] },
+  cagr: { g: "Measuring results", t: "Annual return (CAGR)", s: "The steady yearly growth rate.",
+    p: ["The constant yearly rate that turns the start value into the end value. Easier to compare across different-length periods than total return."], w: "", x: "", r: ["vol", "sharpe"] },
+  vol: { g: "Measuring results", t: "Volatility", s: "How much the account bounces around.",
+    p: ["The yearly standard deviation of daily returns. Lower means a smoother ride."], w: "", x: "", r: ["sharpe"] },
+  sharpe: { g: "Measuring results", t: "Sharpe ratio", s: "Extra return per unit of bumpiness.",
+    p: ["Return above T-bills divided by volatility. Above 1 is good for a single strategy. It treats upside and downside swings the same."],
+    w: "The lab uses it to compare rules fairly. A rule with lower returns but much smoother results can have a higher Sharpe.", x: "", r: ["sortino", "tries"] },
+  sortino: { g: "Measuring results", t: "Sortino ratio", s: "Like Sharpe, but only downside swings count as risk.", p: ["Return above T-bills divided by the volatility of losing days only."], w: "", x: "", r: ["sharpe"] },
+  maxdd: { g: "Measuring results", t: "Worst drop (max drawdown)", s: "The biggest fall from a peak before a new high.",
+    p: ["Measured from the highest point to the lowest point that followed. It's the number that tests whether you'd stick with a strategy."],
+    w: "The wheel's worst drops come from owning assigned shares during a crash.", x: "", r: ["recovery", "worstmonth"] },
+  recovery: { g: "Measuring results", t: "Recovery time", s: "How long it took to get back to the peak.",
+    p: ["Days from the peak before the worst drop until the account was back at that peak."], w: "", x: "", r: ["maxdd"] },
+  worstmonth: { g: "Measuring results", t: "Worst month and CVaR", s: "How bad the bad times are.",
+    p: ["Worst month is the worst calendar-month return. CVaR is the average of the worst 5% of days.", "Both describe the tail, which a win rate hides."], w: "", x: "", r: ["winrate"] },
+  winrate: { g: "Measuring results", t: "The win rate trap", s: "Winning most trades says little.",
+    p: ["Short options win most of the time, so the win rate looks great. What matters is the average win against the average loss."],
+    w: "In 2024 to 2026 the bot's rules won 94% of trades. The average win was $59 and the worst trade lost $1,586.", x: "", r: ["worstmonth", "attribution"] },
+  benchmark: { g: "Measuring results", t: "Benchmarks", s: "What simple alternatives would have done.",
+    p: ["The same $25k in NVDA, held. The same $25k in SPY, held. Or left in T-bills. A strategy is only worth running if it beats these after accounting for risk."], w: "", x: "", r: ["tbills", "sharpe"] },
+  tbills: { g: "Measuring results", t: "T-bills", s: "The return for taking no risk.",
+    p: ["Short-term US government debt, about 4% a year in 2026. Idle cash in the lab earns the T-bill rate, and Sharpe is measured above it."], w: "", x: "", r: ["benchmark"] },
+  attribution: { g: "Measuring results", t: "Where the money came from", s: "Premium, stock moves, or interest.",
+    p: ["Splits the profit into three parts. Option premium is the net result of all options sold and bought back. Stock moves is the gain or loss from owning assigned shares. Interest is what cash earned in T-bills."],
+    w: "In 2024 to 2026 the bot's premium was only about 18% of its profit. Most came from owning NVDA shares during a rally.",
+    x: "If most of the profit comes from stock moves, you're mostly running a stock position.", r: ["premium", "stuck"] },
+  stuck: { g: "Measuring results", t: "No-income days", s: "Holding shares with no call sold.",
+    p: ["Days spent holding assigned shares without an open call, because no call at the allowed strike was worth selling. The money is fully at risk and earning nothing."],
+    w: "Shown in orange on the position timeline.", x: "", r: ["basis", "hybrid"] },
+  overfit: { g: "Testing honestly", t: "Overfitting", s: "Rules tuned to past noise.",
+    p: ["If you tune rules until they look great on past data, they end up matching that history's quirks and fail on new data.", "The more settings you try and the more levers you change, the easier it is to fool yourself. The tools in this panel exist to catch that."], w: "", x: "", r: ["tries", "plateau", "oos", "levers"] },
+  oos: { g: "Testing honestly", t: "Design vs test period", s: "Choose on one part of history, check on another.",
+    p: ["The history is split in two. Choose rules looking only at the first part (design), then check them on the second part (test). Rules that only work in the design period were fitted to it.",
+        "Blind mode hides the test period from every chart and number until you reveal it. Use it when designing a new idea, and reveal only once you've settled on it."],
+    w: "Real prices: design June 2024 to June 2025, test July 2025 onward. Model: design 2016 to 2021, test 2022 onward, which includes the 2022 bear market and the 2025 drop.", x: "", r: ["overfit", "tries"] },
+  tries: { g: "Testing honestly", t: "Tries and the luck allowance", s: "Try enough settings and one will look great by chance.",
+    p: ["Every setting you try is another lottery ticket. The lab counts distinct settings you've run (starting from the 40 in my research) and asks: is your rules' edge over the bot's bigger than the best result luck alone would produce after that many tries?",
+        "It compares your rules with the bot's day by day, so it accounts for how similar the two are. This is the idea behind the deflated Sharpe ratio (Bailey and López de Prado)."],
+    w: "If the edge survives the allowance, it's more likely real. If not, treat it as an idea to test on new data, not a finding.", x: "", r: ["overfit", "sharpe"] },
+  plateau: { g: "Testing honestly", t: "Plateau vs spike", s: "Good settings have good neighbors.",
+    p: ["Real effects sit on a plateau: nearby settings do about as well. A spike, where one exact setting beats all its neighbors, is usually luck.", "The robustness map runs the 24 settings around yours."], w: "", x: "", r: ["overfit"] },
+  levers: { g: "Testing honestly", t: "Lever count", s: "Each changed lever is another way to fit the past.",
+    p: ["Each lever you change from the bot's rules gives the history one more way to be fitted. Keep it to a few that have a clear reason to work."], w: "", x: "", r: ["overfit"] },
+  realvsmodel: { g: "Testing honestly", t: "Real prices vs model", s: "Actual option prices since 2024, or estimates back to 2016.",
+    p: ["Real replays actual NVDA option prices from June 2024 on, with the bot's one-contract sizing. It's the truth, but it's short and mostly a bull market.",
+        "Model estimates option prices back to 2016, so rules face the 2018, 2020, 2022 and 2025 crashes. It's an approximation calibrated on the real prices: trust its direction more than its exact numbers."],
+    w: "A rule worth adopting should look good in both.", x: "", r: ["sample", "spread"] },
+  spread: { g: "Testing honestly", t: "Spread and fees", s: "The cost of every trade.",
+    p: ["Options have a bid (what buyers pay) and an ask (what sellers want). The lab assumes you give up part of that gap on every trade (3% of the price by default) plus about $0.05 per contract in fees."],
+    w: "Ignoring costs makes frequent trading look better than it is.", x: "", r: ["tp"] },
+  sample: { g: "Testing honestly", t: "Sample size", s: "How much evidence a result rests on.",
+    p: ["2.3 years and 50 to 100 trades is a small sample. A few lucky or unlucky trades can swing the results. Fewer trades means less evidence."], w: "", x: "", r: ["oos", "realvsmodel"] },
+  parity: { g: "Testing honestly", t: "Engine check", s: "This page's numbers match the Python research.",
+    p: ["The backtest engine on this page is checked against the Python research engine. On six test cases, return, Sharpe, worst drop and trade count all match."], w: "New levers (delta strikes, loss cuts, hybrid calls, the rich-options filter, contract sizing) exist only in this engine.", x: "", r: ["realvsmodel"] },
+};
+
+// ======================= research log =======================
+const NB = [
+  { t: "Baseline: the bot's current rules", s: ["Baseline", "muted"], over: {},
+    q: "What is running on the paper account right now?",
+    n: "Puts 10% below the price, first Friday at least 14 days out, take profit at 50%, calls 10% above cost basis. Every other entry is measured against this." },
+  { t: "Flaw: most of NVDA's crashes, part of its rallies", s: ["Confirmed flaw", "critical"], over: {}, mode: "model",
+    q: "Does the wheel protect you in crashes?",
+    n: "Barely. From 2016 the wheel kept about 63% of NVDA's yearly return but took about 90% of its worst drop. A short put has almost the same downside as owning the stock, with the upside capped at the premium." },
+  { t: "Flaw: stuck holding shares with no income", s: ["Confirmed flaw", "critical"], over: {}, mode: "model",
+    q: "What happens after assignment in a big drop?",
+    n: "The cost-basis call rule asks for a strike nobody will pay for, so the shares earn nothing. Look at the orange bands in the position timeline: 23% of days since 2016. It's worst in 2018 and 2022." },
+  { t: "Flaw: premium is a small part of the profit", s: ["Confirmed flaw", "critical"], over: {}, mode: "real",
+    q: "Where did the 2024 to 2026 profit come from?",
+    n: "About 18% from option premium. Most came from owning assigned NVDA shares during a rally, plus T-bill interest on idle cash. See \"Where the money came from\"." },
+  { t: "Edge check: are the puts overpriced?", s: ["Supported", "good"], over: {}, mode: "real",
+    q: "Is there a seller's edge to collect at all?",
+    n: "Yes. The bot's puts were priced for more movement than NVDA delivered in 72% of trades (median IV 44% vs 36% realized). Research says this edge is thinner for single stocks than for indexes and vanishes in crashes." },
+  { t: "Idea: longer expiries (30 to 45 days)", s: ["Promising", "good"], over: { dte: 45 },
+    q: "Do longer expiries help?",
+    n: "In both price sources, longer expiries had smaller drops and equal or better Sharpe. The catch is fewer trades: about 30 in the real window, so less evidence." },
+  { t: "Idea: strikes by delta (about 0.20)", s: ["Promising", "good"], over: { put: { method: "delta", delta: 0.20 }, dte: 30 },
+    q: "What if strikes were chosen by risk instead of a fixed 10%?",
+    n: "A 0.20-delta put with 30-day expiries earned slightly more than the bot with a smaller worst drop on real prices. Check the robustness map: neighbors should agree." },
+  { t: "Idea: calls above today's price", s: ["Tradeoff", "warn"], over: { call: { method: "spot", otm: 0.05 } },
+    q: "What if calls ignored the cost basis?",
+    n: "Regime-dependent. In the 2024 to 2026 rally it did badly (shares got called away and the rally was missed). From 2016 it cut the worst drop from 59% to 36%. Your choice depends on which risk you'd rather carry." },
+  { t: "Idea: hybrid call rule", s: ["Tradeoff", "warn"], over: { call: { method: "hybrid", delta: 0.20, under: 0.20 } },
+    q: "Can a middle ground keep most of both?",
+    n: "Mixed. It reduces no-income days and the 2022 damage in the model, but trails the bot on real 2024 to 2026 prices." },
+  { t: "Idea: skip earnings", s: ["Rejected", "muted"], over: { skipEarnings: true },
+    q: "Does avoiding earnings help?",
+    n: "No. It lowered returns and Sharpe in both price sources. The sample is small (about 9 earnings in the real window), so this isn't final." },
+  { t: "Idea: cut losses at 2× credit", s: ["Rejected", "muted"], over: { loss: 2 },
+    q: "Does a stop-loss on the put help?",
+    n: "On real prices it hurt badly. NVDA option prices spike and come back often, so the rule turned temporary moves into realized losses." },
+  { t: "Idea: only sell when options are rich", s: ["Open", "warn"], over: { volFilter: 1.1 }, mode: "real",
+    q: "Does waiting for expensive options pay?",
+    n: "Smaller drops and a similar Sharpe with fewer trades, but lower returns. Needs real prices, so it can't be checked against the crash years." },
+  { t: "Idea: 200-day trend filter", s: ["Rejected", "muted"], over: null,
+    q: "Does skipping new puts below the 200-day average protect you?",
+    n: "It never triggers. On 97% of days below the 200-day average, the wheel was already holding assigned shares. Protection has to act before assignment, not after." },
+  { t: "Candidate to examine: 0.20 delta, 45 days", s: ["Next step", "good"], over: { put: { method: "delta", delta: 0.20 }, dte: 45 },
+    q: "Do the two findings that held up in both tests work together?",
+    n: "Try it in Blind mode first: look only at the design period, then reveal the test period and see if it holds. Then check the robustness map and the luck allowance." },
+];
+
+// ======================= state =======================
+const st = { mode: "real", cfg: clone(E.BOT_RULES), log: { real: false, model: true }, blind: false, revealed: false, trace: "all", tab: "backtest" };
+let seen = new Set();
+try { seen = new Set(JSON.parse(localStorage.getItem("wheellab.tries") || "[]")); } catch (e) { /* storage unavailable */ }
+
+const cache = new Map();
+function evaluate(cfg, mode) {
+  const k = mode + JSON.stringify(cfg);
+  let r = cache.get(k);
+  if (!r) {
+    if (cache.size > 600) cache.clear();
+    const run = E.simulate(D, cfg, mode);
+    r = { run, bench: E.benchmarks(D, run.i0, run.i1), cfg, mode };
+    cache.set(k, r);
+  }
+  return r;
+}
+const metricsOf = (res, curve, a, b) => E.metrics(D, res.run, curve, res.bench.tbill, a, b);
+
+// The parts of a config that matter in this mode, for counting tries and changed levers.
+function relevant(cfg, mode) {
+  const r = { put: cfg.put.method === "otm" ? ["otm", cfg.put.otm] : ["delta", cfg.put.delta], dte: cfg.dte, tp: cfg.tp, loss: cfg.loss,
+    call: cfg.call.method === "basis" || cfg.call.method === "spot" ? [cfg.call.method, cfg.call.otm] : cfg.call.method === "delta" ? ["delta", cfg.call.delta] : ["hybrid", cfg.call.delta, cfg.call.under, cfg.call.otm],
+    skipEarnings: cfg.skipEarnings };
+  if (mode === "real") { r.volFilter = cfg.volFilter; r.sizing = cfg.sizing; }
+  else { r.putMult = cfg.putMult; r.halfSpread = cfg.halfSpread; }
+  if (mode === "real") r.halfSpread = cfg.halfSpread;
+  return r;
+}
+function changedLevers(cfg, mode) {
+  const a = relevant(cfg, mode), b = relevant(E.BOT_RULES, mode);
+  return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+}
+function triesCount() { return PRIOR_TRIES + seen.size; }
+function noteTry() {
+  if (!changedLevers(st.cfg, st.mode).length) return;
+  const k = st.mode + JSON.stringify(relevant(st.cfg, st.mode));
+  if (!seen.has(k)) { seen.add(k); try { localStorage.setItem("wheellab.tries", JSON.stringify([...seen])); } catch (e) { /* ignore */ } }
+}
+
+// Is the edge over the bot's rules bigger than luck after N tries?
+function luckTest(resA, resB, a, b) {
+  const ex = (res) => { const out = []; const q = res.run.eq, rf = res.bench.tbill; for (let k = a + 1; k <= b; k++) out.push(q[k] / q[k - 1] - 1 - (rf[k] / rf[k - 1] - 1)); return out; };
+  const xa = ex(resA), xb = ex(resB), n = xa.length;
+  const mean = (v) => v.reduce((s, x) => s + x, 0) / v.length;
+  const ma = mean(xa), mb = mean(xb);
+  let va = 0, vb = 0, cov = 0;
+  for (let i = 0; i < n; i++) { va += (xa[i] - ma) ** 2; vb += (xb[i] - mb) ** 2; cov += (xa[i] - ma) * (xb[i] - mb); }
+  va /= n - 1; vb /= n - 1; cov /= n - 1;
+  const sa = ma / Math.sqrt(va) * Math.sqrt(252), sb = mb / Math.sqrt(vb) * Math.sqrt(252), rho = cov / Math.sqrt(va * vb);
+  const years = n / 252;
+  const varDiff = Math.max((2 - 2 * rho + (sa * sa + sb * sb - 2 * sa * sb * rho * rho) / 2) / years, 1e-9);
+  const N = triesCount(), g = 0.5772156649;
+  const emax = N > 1 ? (1 - g) * E.ninv(1 - 1 / N) + g * E.ninv(1 - 1 / (N * Math.E)) : 0;
+  const allowance = Math.sqrt(varDiff) * emax;
+  return { diff: sa - sb, allowance, survives: sa - sb > allowance, rho, N };
+}
+
+// ======================= render =======================
+let charts = {};
+function render() {
+  const t0 = performance.now();
+  const mode = st.mode, res = evaluate(st.cfg, mode), base = evaluate(E.BOT_RULES, mode);
+  const run = res.run, split = E.splitIndex(D, run);
+  const blindNow = st.blind && !st.revealed;
+  const end = blindNow ? split - 1 : run.len - 1;
+  const m = metricsOf(res, run.eq, 0, end), mb = metricsOf(base, base.run.eq, 0, end);
+  const mn = metricsOf(res, res.bench.nvda, 0, end), ms = metricsOf(res, res.bench.spy, 0, end);
+  const stats = statsUpTo(run, end), bstats = statsUpTo(base.run, end);
+  const isBot = changedLevers(st.cfg, mode).length === 0;
+  noteTry();
+
+  const d0 = D.dates[run.i0], d1 = D.dates[run.i0 + end];
+  $("#window-label").textContent = `${mode === "real" ? "Real option prices" : "Modelled option prices"} · ${fmtDate(d0)} to ${fmtDate(d1)}${blindNow ? " · design period only (blind mode)" : ""}`;
+  $("#verdict-1").innerHTML = "";
+  $("#verdict-1").append(
+    el("strong", { text: isBot ? "The bot's current rules" : "Your rules" }), ` made ${pct(m.cagr)} a year with a worst drop of ${pct(m.maxDD)}. `,
+    ...(isBot ? [] : [`The bot's rules: ${pct(mb.cagr)} a year, ${pct(mb.maxDD)}. `]),
+    `NVDA held: ${pct(mn.cagr)}, ${pct(mn.maxDD)}. SPY: ${pct(ms.cagr)}, ${pct(ms.maxDD)}.`);
+  const lt = luckTest(res, base, 0, end);
+  const v2 = $("#verdict-2");
+  if (isBot) v2.textContent = "Change a lever on the left to test an idea. Every result is compared with these rules and with simply holding NVDA, SPY or T-bills.";
+  else v2.textContent = `Risk-adjusted, your rules are ${m.sharpe > mb.sharpe ? "better" : "worse"} than the bot's (Sharpe ${num(m.sharpe)} vs ${num(mb.sharpe)}). ` +
+    (lt.diff <= 0 ? "There's no edge to test for luck." : lt.survives ? `The edge is bigger than luck would produce after ${lt.N} tries.` : `After ${lt.N} tries, an edge this size could be luck.`);
+  renderPills(m, mb, mn, lt, isBot, stats);
+  renderTiles(m, mb, mn, stats, bstats, isBot);
+  renderCharts(res, base, end);
+  renderStress(res, base, blindNow, split);
+  renderOOS(res, base, split, blindNow);
+  renderGuard(res, base, m, lt, isBot, end, stats);
+  renderAttribution(res, end);
+  renderYearly(res, base, end);
+  renderTrace(res, end);
+  syncLevers();
+  $("#tries").textContent = `Tries ${triesCount()}`;
+  $("#runtime").textContent = `Ran in ${Math.max(1, Math.round(performance.now() - t0))} ms`;
+}
+
+function statsUpTo(run, end) {
+  if (end >= run.len - 1) return E.tradeStats(run);
+  const sub = { ...run, trades: run.trades.filter((t) => t.k1 <= end), state: run.state.subarray(0, end + 1), len: end + 1 };
+  return E.tradeStats(sub);
+}
+
+function pill(text, kind, icon) {
+  const col = { good: C.good, warn: C.warn, serious: C.serious, critical: C.critical, muted: C.muted }[kind] || C.muted;
+  return el("span", { class: "pill" }, el("span", { class: "ic", style: `color:${col}`, text: icon }), text);
+}
+function renderPills(m, mb, mn, lt, isBot, stats) {
+  const p = $("#verdict-pills"); p.innerHTML = "";
+  p.append(m.sharpe > mn.sharpe ? pill("Better risk-adjusted than holding NVDA", "good", "✓") : pill("Worse risk-adjusted than holding NVDA", "serious", "!"));
+  p.append(m.cagr > mn.cagr ? pill("Beats NVDA's return", "good", "✓") : pill(`Trails NVDA's return by ${pct(mn.cagr - m.cagr)} a year`, "warn", "▾"));
+  if (!isBot) p.append(lt.diff <= 0 ? pill("No edge over the bot's rules", "muted", "–") : lt.survives ? pill("Edge survives the luck allowance", "good", "✓") : pill("Edge could be luck", "warn", "?"));
+  if (stats.stuckDays > 0.05) p.append(pill(`No income on ${pct(stats.stuckDays, 0)} of days`, "serious", "!"));
+  const nLev = changedLevers(st.cfg, st.mode).length;
+  if (nLev >= 4) p.append(pill(`${nLev} levers changed: high overfitting risk`, "critical", "!"));
+}
+
+function tile(label, concept, value, sub) {
+  return el("div", { class: "tile" },
+    el("div", { class: "lab" }, label, el("button", { class: "q", "data-c": concept, "aria-label": "Explain " + label, text: "?" })),
+    el("div", { class: "v", text: value }), el("div", { class: "s", text: sub }));
+}
+function renderTiles(m, mb, mn, s, bs, isBot) {
+  const t = $("#tiles"); t.innerHTML = "";
+  const vsBot = (x) => isBot ? "" : `Bot ${x} · `;
+  t.append(
+    tile("Annual return", "cagr", pct(m.cagr), `${vsBot(pct(mb.cagr))}NVDA ${pct(mn.cagr)}`),
+    tile("Worst drop", "maxdd", pct(m.maxDD), m.recovery != null ? `Recovered in ${m.recovery} days` : "Not yet recovered"),
+    tile("Sharpe", "sharpe", num(m.sharpe), `${vsBot(num(mb.sharpe))}NVDA ${num(mn.sharpe)}`),
+    tile("Worst month", "worstmonth", pct(m.worstMonth), `Worst 5% of days avg ${pct(m.cvar5, 2)}`),
+    tile("No-income days", "stuck", pct(s.stuckDays, 0), `Holding shares ${pct(s.shareDays, 0)} of days`),
+    tile("Trades", "winrate", String(s.trades), `Win ${pct(s.winRate, 0)} · avg ${money(s.avgWin)} / ${money(s.avgLoss)}`),
+  );
+}
+
+// ---------- charts ----------
+const AX = () => ({ stroke: C.muted, grid: { stroke: C.line, width: 1 }, ticks: { stroke: C.line, width: 1, size: 4 }, font: '11px "IBM Plex Mono", ui-monospace, monospace', labelFont: '11px "IBM Plex Mono", monospace' });
+const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+const STATE_NAMES = ["Cash (no position)", "Short put", "Shares + call", "Shares, no call"];
+
+function legendItem(label, color, kind = "line") {
+  return el("span", { class: "it" }, el("span", { class: kind === "line" ? "key" : "sw", style: `background:${color}` }), label);
+}
+
+let replayTimer = null;
+function renderCharts(res, base, end) {
+  if (replayTimer) { cancelAnimationFrame(replayTimer); replayTimer = null; }
+  const run = res.run, n = end + 1;
+  const xs = new Array(n), yours = new Array(n), bot = new Array(n), nv = new Array(n), sp = new Array(n), tb = new Array(n);
+  const ddY = new Array(n), ddB = new Array(n), ddN = new Array(n);
+  let pY = 0, pB = 0, pN = 0;
+  for (let k = 0; k < n; k++) {
+    xs[k] = D.day[run.i0 + k] * 86400;
+    yours[k] = run.eq[k]; bot[k] = base.run.eq[k]; nv[k] = res.bench.nvda[k]; sp[k] = res.bench.spy[k]; tb[k] = res.bench.tbill[k];
+    pY = Math.max(pY, yours[k]); pB = Math.max(pB, bot[k]); pN = Math.max(pN, nv[k]);
+    ddY[k] = (yours[k] / pY - 1) * 100; ddB[k] = (bot[k] / pB - 1) * 100; ddN[k] = (nv[k] / pN - 1) * 100;
+  }
+  const all = [yours, bot, nv, sp, tb].flat();
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const logScale = st.log[st.mode];
+  $("#logscale").checked = logScale;
+  const isBot = changedLevers(st.cfg, st.mode).length === 0;
+  const lg = $("#legend-eq"); lg.innerHTML = "";
+  lg.append(legendItem(isBot ? "Bot's rules" : "Your rules", C.accent));
+  if (!isBot) lg.append(legendItem("Bot's rules", C.bot));
+  lg.append(legendItem("NVDA held", C.nvda), legendItem("SPY held", C.spy), legendItem("T-bills", C.tbill));
+  const ls = $("#legend-state"); ls.innerHTML = "";
+  [[C.put, "Short put"], [C.call, "Shares + call"], [C.stuck, "Shares, no call"], [C.cash, "Cash"]].forEach(([c, t]) => ls.append(legendItem(t, c, "sw")));
+
+  const width = Math.max(280, $("#ch-eq").clientWidth);
+  const tz = (ts) => uPlot.tzDate(new Date(ts * 1e3), "Etc/UTC");
+  const sync = { key: "wl" };
+  const series = [{}, { label: "Yours", stroke: C.accent, width: 2, fill: hexA(C.accent, 0.10), points: { show: false } }];
+  if (!isBot) series.push({ label: "Bot", stroke: C.bot, width: 2, points: { show: false } });
+  series.push({ label: "NVDA", stroke: C.nvda, width: 1.25, points: { show: false } }, { label: "SPY", stroke: C.spy, width: 1.25, points: { show: false } }, { label: "T-bills", stroke: C.tbill, width: 1.25, points: { show: false } });
+  const eqData = [xs, yours, ...(isBot ? [] : [bot]), nv, sp, tb];
+  const yAxisMoney = (u, vals) => vals.map((v) => v == null ? "" : money(v));
+  const optsEq = {
+    width, height: 300, tzDate: tz, legend: { show: false }, padding: [10, 18, 0, 0],
+    cursor: { sync, drag: { x: false, y: false }, points: { size: 7, width: 2 } },
+    scales: { x: { time: true }, y: logScale ? { distr: 3, range: () => [lo * 0.85, hi * 1.15] } : { range: () => [Math.max(0, lo * 0.92), hi * 1.05] } },
+    axes: [{ ...AX(), size: 44 }, { ...AX(), size: 66, values: yAxisMoney }],
+    series,
+    hooks: { setCursor: [(u) => readout(res, base, u.cursor.idx, end)] },
+  };
+  mount("eq", optsEq, eqData);
+  const ddLo = Math.min(...ddY, ...ddB, ...ddN);
+  const ddSeries = [{}, { label: "Yours", stroke: C.accent, width: 2, fill: hexA(C.accent, 0.10), points: { show: false } }];
+  if (!isBot) ddSeries.push({ label: "Bot", stroke: C.bot, width: 1.5, points: { show: false } });
+  ddSeries.push({ label: "NVDA", stroke: C.nvda, width: 1.25, points: { show: false } });
+  mount("dd", {
+    width, height: 150, tzDate: tz, legend: { show: false }, padding: [10, 18, 0, 0],
+    cursor: { sync, drag: { x: false, y: false }, points: { size: 6, width: 2 } },
+    scales: { x: { time: true }, y: { range: () => [ddLo * 1.05, 0] } },
+    axes: [{ ...AX(), size: 44 }, { ...AX(), size: 66, values: (u, v) => v.map((x) => x == null ? "" : (x < 0 ? MINUS : "") + Math.abs(x).toFixed(0) + "%") }],
+    series: ddSeries,
+  }, [xs, ddY, ...(isBot ? [] : [ddB]), ddN]);
+  const stateColors = [C.cash, C.put, C.call, C.stuck];
+  mount("state", {
+    width, height: 34, tzDate: tz, legend: { show: false }, padding: [6, 18, 6, 0],
+    cursor: { sync, drag: { x: false, y: false }, y: false, points: { show: false } },
+    scales: { x: { time: true }, y: { range: [0, 1] } },
+    axes: [{ show: false }, { ...AX(), size: 66, values: () => [], grid: { show: false }, ticks: { show: false } }],
+    series: [{}, { stroke: "transparent", points: { show: false } }],
+    hooks: { draw: [(u) => {
+      const ctx = u.ctx, top = u.bbox.top, h = u.bbox.height, lim = u.data[0].length;
+      let s = 0;
+      for (let k = 1; k <= lim; k++) {
+        if (k === lim || run.state[k] !== run.state[s]) {
+          const x0 = u.valToPos(xs[s], "x", true), x1 = u.valToPos(k < lim ? xs[k] : xs[lim - 1] + 86400, "x", true);
+          ctx.fillStyle = stateColors[run.state[s]];
+          ctx.fillRect(x0, top, Math.max(1, x1 - x0), h);
+          s = k;
+        }
+      }
+    }] },
+  }, [xs, new Array(n).fill(0.5)]);
+  readout(res, base, null, end);
+  $("#mode-note").textContent = st.mode === "real"
+    ? "Real NVDA option closes (last trades) from Alpaca. One contract within $25k, like the bot. Fills give up part of the bid/ask spread plus fees. Idle cash earns T-bill rates."
+    : "Modelled option prices: Black-Scholes with implied vol set to a multiple of NVDA's realized vol, calibrated on 2024 to 2026 real trades. Fully invested. Trust the direction more than the exact numbers.";
+}
+
+function mount(key, opts, data) {
+  const host = $("#ch-" + key);
+  if (charts[key]) charts[key].destroy();
+  host.innerHTML = "";
+  charts[key] = new uPlot(opts, data, host);
+}
+
+function readout(res, base, idx, end) {
+  const r = $("#readout"), run = res.run;
+  const k = idx == null ? end : idx;
+  if (k == null || k < 0) return;
+  const isBot = changedLevers(st.cfg, st.mode).length === 0;
+  r.innerHTML = "";
+  const it = (color, label, val) => el("span", { class: "it" }, color ? el("span", { class: "key", style: `background:${color}` }) : null, el("b", { text: val }), el("span", { class: "lbl", text: label }));
+  r.append(el("span", { class: "it" }, el("b", { text: fmtDate(D.dates[run.i0 + k]) })));
+  r.append(it(C.accent, isBot ? "bot" : "yours", money(run.eq[k])));
+  if (!isBot) r.append(it(C.bot, "bot", money(base.run.eq[k])));
+  r.append(it(C.nvda, "NVDA", money(res.bench.nvda[k])), it(C.spy, "SPY", money(res.bench.spy[k])), it(C.tbill, "T-bills", money(res.bench.tbill[k])));
+  r.append(el("span", { class: "it" }, el("span", { class: "lbl", text: "holding" }), el("b", { text: STATE_NAMES[run.state[k]] })));
+}
+
+// ---------- stress & out-of-sample ----------
+function miniBar(v, color, scale) {
+  const w = Math.min(1, Math.abs(v) / scale) * 50;
+  return el("span", { class: "mini" }, el("i", { style: `background:${color};left:${v < 0 ? 50 - w : 50}%;width:${w}%` }));
+}
+function renderStress(res, base, blindNow, split) {
+  const t = $("#stress"); t.innerHTML = "";
+  const isBot = changedLevers(st.cfg, st.mode).length === 0;
+  const cols = [["Yours", res.run.eq, C.accent], ...(isBot ? [] : [["Bot", base.run.eq, C.bot]]), ["NVDA", res.bench.nvda, C.nvda], ["SPY", res.bench.spy, C.spy]];
+  t.append(el("thead", {}, el("tr", {}, el("th", { text: "Period" }), ...cols.map(([h]) => el("th", { text: h })))));
+  const tb = el("tbody");
+  const splitIso = E.WINDOWS[st.mode].split;
+  for (const [name, a, b] of E.REGIMES[st.mode]) {
+    const hidden = blindNow && b >= splitIso;
+    const vals = cols.map(([, curve]) => E.sliceReturn(D, res.run, curve, a, b));
+    const scale = Math.max(0.2, ...vals.map((v) => Math.abs(v) || 0));
+    tb.append(el("tr", {}, el("td", { text: name, title: `${a} to ${b}` }),
+      ...vals.map((v, j) => hidden ? el("td", { class: "hidden-val", text: "hidden" }) : el("td", {}, el("span", { class: "bar-cell" }, pct(v, 0, true), miniBar(v, cols[j][2], scale))))));
+  }
+  t.append(tb);
+}
+function renderOOS(res, base, split, blindNow) {
+  const t = $("#oos"); t.innerHTML = "";
+  const last = res.run.len - 1;
+  const parts = [["Design", 0, split - 1], ["Test", split, last]];
+  const isBot = changedLevers(st.cfg, st.mode).length === 0;
+  t.append(el("thead", {}, el("tr", {}, el("th", { text: "Period" }), el("th", { text: "Yours /yr" }), el("th", { text: "Sharpe" }), el("th", { text: "Worst drop" }), ...(isBot ? [] : [el("th", { text: "Bot Sharpe" })]))));
+  const tb = el("tbody"), out = [];
+  for (const [name, a, b] of parts) {
+    const label = `${name} · ${D.dates[res.run.i0 + a].slice(0, 7)} to ${D.dates[res.run.i0 + b].slice(0, 7)}`;
+    if (name === "Test" && blindNow) { tb.append(el("tr", {}, el("td", { text: label }), el("td", { class: "hidden-val", text: "hidden", colspan: isBot ? 3 : 4 }))); continue; }
+    const m = metricsOf(res, res.run.eq, a, b), mb = metricsOf(base, base.run.eq, a, b);
+    out.push([m, mb]);
+    tb.append(el("tr", {}, el("td", { text: label }), el("td", { text: pct(m.cagr) }), el("td", { text: num(m.sharpe) }), el("td", { text: pct(m.maxDD) }), ...(isBot ? [] : [el("td", { text: num(mb.sharpe) })])));
+  }
+  t.append(tb);
+  const note = $("#oos-note");
+  $("#reveal").hidden = !blindNow;
+  if (blindNow) note.textContent = "The test period is hidden. Settle on your rules using the design period, then reveal it to see whether they hold up.";
+  else if (isBot) note.textContent = "Change a lever to compare your rules with the bot's in each period.";
+  else {
+    const [d, tst] = out;
+    const better = (p) => p[0].sharpe > p[1].sharpe;
+    note.textContent = better(d) && better(tst) ? "Better than the bot's rules in both periods. A good sign."
+      : better(d) && !better(tst) ? "Better only in the design period. That's the classic sign of a rule fitted to the past."
+      : !better(d) && better(tst) ? "Worse in the design period, better in the test period. Mixed evidence."
+      : "Worse than the bot's rules in both periods.";
+  }
+}
+
+// ---------- overfitting guard ----------
+function neighborsGrid() {
+  const c = st.cfg, byDelta = c.put.method === "delta";
+  const base = byDelta ? c.put.delta : c.put.otm, step = byDelta ? 0.05 : 0.025;
+  const lo = byDelta ? 0.05 : 0, hi = byDelta ? 0.45 : 0.25;
+  let xs = [-2, -1, 0, 1, 2].map((j) => +(base + j * step).toFixed(3));
+  while (xs[0] < lo - 1e-9) xs = xs.map((x) => +(x + step).toFixed(3));
+  while (xs[4] > hi + 1e-9) xs = xs.map((x) => +(x - step).toFixed(3));
+  const D_ALL = [7, 14, 21, 30, 45, 60];
+  let i = D_ALL.indexOf(c.dte); if (i < 0) i = 1;
+  const start = Math.min(Math.max(0, i - 2), D_ALL.length - 5);
+  return { byDelta, xs, ys: D_ALL.slice(start, start + 5) };
+}
+function renderGuard(res, base, m, lt, isBot, end, stats) {
+  const nLev = changedLevers(st.cfg, st.mode).length;
+  $("#luck-big").textContent = isBot ? "Baseline" : `${lt.diff >= 0 ? "+" : MINUS}${Math.abs(lt.diff).toFixed(2)} Sharpe vs ${lt.allowance.toFixed(2)} allowed for luck`;
+  $("#luck-note").textContent = isBot ? "These are the bot's rules. Change a lever to test whether an idea beats them by more than luck."
+    : lt.diff <= 0 ? "Your rules don't beat the bot's on a risk-adjusted basis, so there's nothing to test."
+    : lt.survives ? `Survives: the edge is larger than the best result luck would likely produce after ${lt.N} tries.`
+    : `Doesn't survive yet: after ${lt.N} tries, luck alone could produce an edge this size. Your rules and the bot's move together ${Math.round(lt.rho * 100)}% of the time, which the allowance accounts for.`;
+
+  const g = neighborsGrid(), heat = $("#heat"); heat.innerHTML = "";
+  heat.append(el("div", { class: "hd rowh", text: "DTE ↓" }));
+  g.xs.forEach((x) => heat.append(el("div", { class: "hd", text: g.byDelta ? `Δ ${x.toFixed(2)}` : `${(x * 100).toFixed(1)}%` })));
+  const cells = [];
+  for (const dte of g.ys) for (const x of g.xs) {
+    const cfg = clone(st.cfg); cfg.dte = dte;
+    if (g.byDelta) cfg.put.delta = x; else cfg.put.otm = x;
+    const r = evaluate(cfg, st.mode), mm = metricsOf(r, r.run.eq, 0, end);
+    cells.push({ dte, x, cfg, sharpe: mm.sharpe, cagr: mm.cagr, dd: mm.maxDD });
+  }
+  const vals = cells.map((c) => c.sharpe).filter(Number.isFinite), vmin = Math.min(...vals), vmax = Math.max(...vals);
+  const best = cells.reduce((a, c) => (c.sharpe > a.sharpe ? c : a), cells[0]);
+  const curX = g.byDelta ? st.cfg.put.delta : st.cfg.put.otm;
+  let cur = null;
+  g.ys.forEach((dte) => {
+    heat.append(el("div", { class: "hd rowh", text: `${dte}d` }));
+    cells.filter((c) => c.dte === dte).forEach((c) => {
+      const t = vmax > vmin ? (c.sharpe - vmin) / (vmax - vmin) : 0.5, step = Math.round(t * (RAMP.length - 1));
+      const isCur = c.dte === st.cfg.dte && Math.abs(c.x - curX) < 1e-6;
+      if (isCur) cur = c;
+      const b = el("button", { class: isCur ? "cur" : "", style: `background:${RAMP[step]};color:${step >= 4 ? C.bg : C.ink}`,
+        title: `${c.dte} days, ${g.byDelta ? "delta " + c.x.toFixed(2) : (c.x * 100).toFixed(1) + "% below"}: ${pct(c.cagr)} a year, worst drop ${pct(c.dd)}, Sharpe ${num(c.sharpe)}`,
+        "aria-label": `Load ${c.dte} days ${g.byDelta ? "delta " + c.x.toFixed(2) : (c.x * 100).toFixed(1) + " percent"}`,
+        onclick: () => { st.cfg = c.cfg; render(); } }, num(c.sharpe));
+      if (c === best) b.append(el("span", { class: "best", text: "▲" }));
+      heat.append(b);
+    });
+  });
+  const ramp = $("#ramp"); ramp.innerHTML = ""; RAMP.forEach((c) => ramp.append(el("i", { style: `background:${c}` })));
+  if (cur) {
+    const ix = g.xs.findIndex((x) => Math.abs(x - curX) < 1e-6), iy = g.ys.indexOf(st.cfg.dte);
+    const nb = cells.filter((c) => { const jx = g.xs.indexOf(c.x), jy = g.ys.indexOf(c.dte); return Math.max(Math.abs(jx - ix), Math.abs(jy - iy)) === 1; }).map((c) => c.sharpe).sort((a, b) => a - b);
+    const med = nb[Math.floor(nb.length / 2)], diff = cur.sharpe - med;
+    $("#plateau-big").textContent = diff > 0.25 ? "Spike" : diff < -0.25 ? "Valley" : "Plateau";
+    $("#plateau-note").textContent = diff > 0.25 ? `Your setting beats its neighbors' median Sharpe by ${diff.toFixed(2)}. Sharp peaks are usually luck.`
+      : diff < -0.25 ? `Neighbors do better (median Sharpe ${num(med)}). Look at the brighter cells.`
+      : `Neighbors agree (median Sharpe ${num(med)} vs ${num(cur.sharpe)}). Results don't hinge on the exact setting.`;
+  } else { $("#plateau-big").textContent = "–"; $("#plateau-note").textContent = ""; }
+  const yrs = m.years.toFixed(1);
+  $("#sample-note").textContent = `${stats.trades} trades over ${yrs} years, ${stats.assigned} assignments. ` +
+    (stats.trades < 40 ? "That's thin evidence: a few trades can swing the result." : stats.assigned < 3 ? "Few assignments, so the riskiest part of the wheel was barely tested." : "") +
+    (nLev >= 4 ? ` You've changed ${nLev} levers, which makes fitting the past easy.` : "");
+}
+
+// ---------- attribution & yearly ----------
+function renderAttribution(res, end) {
+  const run = res.run, box = $("#attr"); box.innerHTML = "";
+  if (end < run.len - 1) { box.append(el("p", { class: "note", text: "Shown for the full run. Reveal the test period to see it." })); return; }
+  const total = run.eq[run.len - 1] - run.eq[0];
+  const rows = [["Option premium (net)", run.premium], ["Stock moves", total - run.premium - run.interest], ["Interest on cash", run.interest]];
+  const scale = Math.max(...rows.map((r) => Math.abs(r[1])), 1);
+  for (const [label, v] of rows) {
+    const w = Math.abs(v) / scale * 50;
+    box.append(el("div", { class: "a" }, el("span", { text: label }),
+      el("span", { class: "track" }, el("i", { style: `left:${v < 0 ? 50 - w : 50}%;width:${w}%` })),
+      el("span", { class: "amt", text: money(v) })));
+  }
+  box.append(el("p", { class: "note", style: "margin:4px 0 0", text: `Total gain ${money(total)}. Premium is ${pct(run.premium / total, 0)} of it.` }));
+}
+function renderYearly(res, base, end) {
+  const t = $("#yearly"); t.innerHTML = "";
+  const isBot = changedLevers(st.cfg, st.mode).length === 0;
+  const cols = [["Yours", res.run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ["NVDA", res.bench.nvda], ["SPY", res.bench.spy]];
+  t.append(el("thead", {}, el("tr", {}, el("th", { text: "Year" }), ...cols.map(([h]) => el("th", { text: h })))));
+  const tb = el("tbody"), run = res.run;
+  let start = 0;
+  for (let k = 0; k <= end; k++) {
+    const y = D.dates[run.i0 + k].slice(0, 4), next = k < end ? D.dates[run.i0 + k + 1].slice(0, 4) : null;
+    if (y !== next) {
+      tb.append(el("tr", {}, el("td", { text: y + (k === end && next === null && end < run.len - 1 ? " (design)" : start === 0 ? " (part)" : "") }),
+        ...cols.map(([, c]) => el("td", { text: pct(c[k] / c[start] - 1, 1, true) }))));
+      start = k;
+    }
+  }
+  t.append(tb);
+}
+
+// ---------- trace ----------
+const TRACE_TYPES = { put: ["Sell put", C.put], call: ["Sell call", C.call], tp: ["Profit", C.good], expire: ["Expired", C.good],
+  assign: ["Assigned", C.stuck], called: ["Called", C.call], stop: ["Loss cut", C.critical], stuck: ["No call", C.stuck], skip: ["Skip", C.muted], cheap: ["Wait", C.muted] };
+const TRACE_FILTERS = { all: null, big: ["assign", "called", "stop", "stuck"], income: ["put", "call", "tp", "expire"], skips: ["skip", "cheap"] };
+function renderTrace(res, end, upto = null) {
+  const box = $("#trace"); box.innerHTML = "";
+  const f = TRACE_FILTERS[st.trace];
+  const frag = document.createDocumentFragment();
+  for (const e of res.run.events) {
+    if (e.k > end) break;
+    if (f && !f.includes(e.type)) continue;
+    const [lab, col] = TRACE_TYPES[e.type] || [e.type, C.muted];
+    const cls = "ln" + (upto != null && e.k > upto ? " future" : "");
+    frag.append(el("div", { class: cls, "data-k": e.k }, el("span", { class: "d", text: D.dates[res.run.i0 + e.k] }),
+      el("span", { class: "t" }, el("span", { class: "dot", style: `background:${col}` }), lab), el("span", { class: "x", text: e.text })));
+  }
+  if (!frag.childNodes.length) frag.append(el("div", { class: "ln" }, el("span", { class: "d", text: "" }), el("span", { class: "t", text: "" }), el("span", { class: "x", text: "No events of this kind." })));
+  box.append(frag);
+}
+
+// ---------- replay ----------
+function replay() {
+  const res = evaluate(st.cfg, st.mode), base = evaluate(E.BOT_RULES, st.mode), run = res.run;
+  const blindNow = st.blind && !st.revealed, end = blindNow ? E.splitIndex(D, run) - 1 : run.len - 1;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { render(); return; }
+  renderTrace(res, end, 0);
+  const full = { eq: charts.eq.data.map((a) => a.slice()), dd: charts.dd.data.map((a) => a.slice()) };
+  const dur = 7000; let t0 = null;
+  const box = $("#trace"), lines = [...box.querySelectorAll(".ln")];
+  const step = (ts) => {
+    if (t0 == null) t0 = ts;
+    const p = Math.min(1, (ts - t0) / dur), upto = Math.max(1, Math.floor(p * end));
+    for (const key of ["eq", "dd"]) {
+      const d = full[key].map((a, j) => j === 0 ? a : a.map((v, k) => (k <= upto ? v : null)));
+      charts[key].setData(d, false); charts[key].redraw();
+    }
+    readout(res, base, upto, end);
+    let last = null;
+    for (const ln of lines) { const k = +ln.dataset.k; ln.classList.toggle("future", k > upto); ln.classList.remove("now"); if (k <= upto) last = ln; }
+    if (last) { last.classList.add("now"); box.scrollTop = last.offsetTop - box.clientHeight / 2; }
+    if (p < 1) replayTimer = requestAnimationFrame(step); else { replayTimer = null; for (const ln of lines) ln.classList.remove("future", "now"); }
+  };
+  replayTimer = requestAnimationFrame(step);
+}
+
+// ======================= levers =======================
+function segButtons(id, options, get, set) {
+  const host = $("#" + id); host.innerHTML = "";
+  options.forEach(([value, label]) => host.append(el("button", { "data-v": JSON.stringify(value), onclick: () => { set(value); render(); } }, label)));
+  host._get = get;
+}
+function syncSeg(id, disabled = false) {
+  const host = $("#" + id), cur = JSON.stringify(host._get());
+  host.querySelectorAll("button").forEach((b) => { b.setAttribute("aria-pressed", String(b.dataset.v === cur)); b.disabled = disabled; });
+}
+function buildLevers() {
+  segButtons("dte-seg", [[7, "7"], [14, "14"], [21, "21"], [30, "30"], [45, "45"], [60, "60"]], () => st.cfg.dte, (v) => (st.cfg.dte = v));
+  segButtons("tp-seg", [[null, "Off"], [0.25, "25%"], [0.5, "50%"], [0.75, "75%"]], () => st.cfg.tp, (v) => (st.cfg.tp = v));
+  segButtons("loss-seg", [[null, "Off"], [2, "2× credit"], [3, "3× credit"]], () => st.cfg.loss, (v) => (st.cfg.loss = v));
+  segButtons("earn-seg", [[false, "Sell through"], [true, "Skip"]], () => st.cfg.skipEarnings, (v) => (st.cfg.skipEarnings = v));
+  segButtons("vol-seg", [[null, "Off"], [1.0, "1.0×"], [1.1, "1.1×"], [1.2, "1.2×"]], () => st.cfg.volFilter, (v) => (st.cfg.volFilter = v));
+  segButtons("size-seg", [["one", "1 contract"], ["max", "As many as $25k covers"]], () => st.cfg.sizing, (v) => (st.cfg.sizing = v));
+  segButtons("trace-seg", [["all", "All"], ["big", "Assignments & losses"], ["income", "Income"], ["skips", "Skips"]], () => st.trace, (v) => (st.trace = v));
+  const debounced = (fn) => { let t; return (e) => { clearTimeout(t); t = setTimeout(() => fn(e), 90); }; };
+  $("#put-m-otm").onclick = () => { st.cfg.put.method = "otm"; render(); };
+  $("#put-m-delta").onclick = () => { st.cfg.put.method = "delta"; render(); };
+  $("#put-otm").oninput = debounced((e) => { st.cfg.put.otm = +e.target.value / 100; render(); });
+  $("#put-delta").oninput = debounced((e) => { st.cfg.put.delta = +e.target.value; render(); });
+  $("#call-method").onchange = (e) => { st.cfg.call.method = e.target.value; render(); };
+  $("#call-otm").oninput = debounced((e) => { st.cfg.call.otm = +e.target.value / 100; render(); });
+  $("#call-delta").oninput = debounced((e) => { st.cfg.call.delta = +e.target.value; render(); });
+  $("#call-under").oninput = debounced((e) => { st.cfg.call.under = +e.target.value; render(); });
+  $("#put-mult").oninput = debounced((e) => { st.cfg.putMult = +e.target.value; render(); });
+  $("#half-spread").oninput = debounced((e) => { st.cfg.halfSpread = +e.target.value; render(); });
+  $("#reset").onclick = () => { st.cfg = clone(E.BOT_RULES); render(); };
+  $("#blind").onchange = (e) => { st.blind = e.target.checked; st.revealed = false; render(); };
+  $("#reveal").onclick = () => { st.revealed = true; render(); toast("Test period revealed. Judge your rules on it before changing anything."); };
+  $("#logscale").onchange = (e) => { st.log[st.mode] = e.target.checked; render(); };
+  $("#replay").onclick = replay;
+  $("#mode-real").onclick = () => setMode("real");
+  $("#mode-model").onclick = () => setMode("model");
+  $("#copy").onclick = copySettings;
+  for (const [id, view] of [["tab-backtest", "backtest"], ["tab-log", "log"], ["tab-concepts", "concepts"]]) $("#" + id).onclick = () => setTab(view);
+}
+function setMode(mode) {
+  st.mode = mode;
+  if (mode === "model") { st.cfg.volFilter = null; st.cfg.sizing = "one"; }
+  render();
+}
+function syncLevers() {
+  const c = st.cfg, real = st.mode === "real", changed = new Set(changedLevers(c, st.mode));
+  $("#mode-real").setAttribute("aria-pressed", String(real));
+  $("#mode-model").setAttribute("aria-pressed", String(!real));
+  $("#put-m-otm").setAttribute("aria-pressed", String(c.put.method === "otm"));
+  $("#put-m-delta").setAttribute("aria-pressed", String(c.put.method === "delta"));
+  $("#put-otm").hidden = c.put.method !== "otm"; $("#put-delta").hidden = c.put.method !== "delta";
+  $("#put-otm").value = Math.round(c.put.otm * 100); $("#put-delta").value = c.put.delta;
+  $("#put-val").textContent = c.put.method === "otm" ? `${(c.put.otm * 100).toFixed(1)}% below` : `delta ${c.put.delta.toFixed(2)}`;
+  $("#dte-val").textContent = `${c.dte}+ days`;
+  $("#call-method").value = c.call.method;
+  const cm = c.call.method;
+  $("#call-otm").hidden = !(cm === "basis" || cm === "spot" || cm === "hybrid");
+  $("#call-delta").hidden = !(cm === "delta" || cm === "hybrid");
+  $("#call-under-wrap").hidden = cm !== "hybrid";
+  $("#call-otm").value = Math.round(c.call.otm * 100); $("#call-delta").value = c.call.delta; $("#call-under").value = c.call.under;
+  $("#call-val").textContent = cm === "basis" ? `basis +${Math.round(c.call.otm * 100)}%` : cm === "spot" ? `price +${Math.round(c.call.otm * 100)}%` : cm === "delta" ? `delta ${c.call.delta.toFixed(2)}` : `+${Math.round(c.call.otm * 100)}% / Δ ${c.call.delta.toFixed(2)}`;
+  $("#under-val").textContent = `${Math.round(c.call.under * 100)}%`;
+  $("#put-mult").value = c.putMult; $("#half-spread").value = c.halfSpread;
+  $("#pm-val").textContent = `${c.putMult.toFixed(2)}×`; $("#hs-val").textContent = `${(c.halfSpread * 100).toFixed(1)}%`;
+  ["dte-seg", "tp-seg", "loss-seg", "earn-seg", "trace-seg"].forEach((id) => syncSeg(id));
+  syncSeg("vol-seg", !real); syncSeg("size-seg", !real);
+  $("#vol-note").hidden = real; $("#size-note").hidden = real;
+  $("#lv-vol").classList.toggle("off", !real); $("#lv-size").classList.toggle("off", !real);
+  $("#put-mult").disabled = real; $("#lv-model").classList.toggle("off", real);
+  $("#model-note").textContent = real ? "Only used by the Model prices. The spread setting applies to both." : "Calibrated default: 1.13×. Set 1.00 to remove the seller's edge.";
+  $("#half-spread").disabled = false;
+  const map = { put: "lv-put", dte: "lv-dte", tp: "lv-tp", loss: "lv-loss", call: "lv-call", skipEarnings: "lv-earn", volFilter: "lv-vol", sizing: "lv-size", putMult: "lv-model", halfSpread: "lv-model" };
+  Object.values(map).forEach((id) => $("#" + id).classList.remove("changed"));
+  changed.forEach((k) => map[k] && $("#" + map[k]).classList.add("changed"));
+  const nLev = changed.size;
+  $("#lever-count").textContent = String(nLev);
+  const col = nLev >= 4 ? C.critical : nLev >= 3 ? C.warn : C.accent;
+  [...$("#lever-meter").children].forEach((i, j) => (i.style.background = j < nLev ? col : ""));
+  $("#lever-note").textContent = nLev === 0 ? "You're on the bot's current rules." : nLev <= 2 ? "A focused test. Good." : nLev === 3 ? "Getting busy. Each lever is another way to fit the past." : "Many levers changed. Results this tuned rarely hold up.";
+  $("#blind").checked = st.blind;
+}
+function setTab(view) {
+  st.tab = view;
+  for (const v of ["backtest", "log", "concepts"]) { $("#view-" + v).hidden = v !== view; $("#tab-" + v).setAttribute("aria-selected", String(v === view)); }
+  if (view === "backtest") render();
+  if (view === "log") renderLog();
+}
+
+// ======================= research log & concepts =======================
+function applyOver(over) {
+  const c = clone(E.BOT_RULES);
+  for (const [k, v] of Object.entries(over || {})) if (v && typeof v === "object") Object.assign(c[k], v); else c[k] = v;
+  return c;
+}
+function renderLog() {
+  const box = $("#log"); box.innerHTML = "";
+  for (const e of NB) {
+    const kind = { good: "good", warn: "warn", critical: "critical", muted: "muted" }[e.s[1]];
+    const icon = { good: "✓", warn: "?", critical: "!", muted: "–" }[kind];
+    const card = el("section", { class: "panel entry" },
+      el("div", { class: "eh" }, el("h3", { text: e.t }), pill(e.s[0], kind, icon)),
+      el("p", {}, el("strong", { text: "Question. " }), e.q), el("p", { text: e.n }));
+    if (e.over) {
+      const cfg = applyOver(e.over), mt = el("div", { class: "mt" });
+      for (const mode of ["real", "model"]) {
+        if (mode === "model" && cfg.volFilter) { mt.append(el("span", { text: "Model: needs real prices" })); continue; }
+        const r = evaluate(cfg, mode), m = metricsOf(r, r.run.eq, 0, r.run.len - 1);
+        mt.append(el("span", {}, el("span", { text: mode === "real" ? "Real 2024–26 " : "Model 2016–26 " }), el("b", { text: `${pct(m.cagr)}/yr` }), ` · drop ${pct(m.maxDD)} · Sharpe ${num(m.sharpe)}`));
+      }
+      card.append(mt, el("div", { class: "row" }, el("button", { class: "btn primary", onclick: () => { st.cfg = cfg; st.mode = e.mode || (cfg.volFilter ? "real" : st.mode); setTab("backtest"); window.scrollTo({ top: 0 }); } }, "Load in backtest")));
+    }
+    box.append(card);
+  }
+}
+function renderConcepts() {
+  const box = $("#concepts"), groups = {};
+  for (const [id, c] of Object.entries(CONCEPTS)) (groups[c.g] ||= []).push([id, c]);
+  for (const [g, items] of Object.entries(groups)) {
+    const list = el("div", { class: "clist" });
+    items.forEach(([id, c]) => list.append(el("button", { "data-c": id }, el("b", { text: c.t }), el("span", { text: c.s }))));
+    box.append(el("section", { class: "cgroup" }, el("h3", { text: g }), list));
+  }
+}
+let lastFocus = null;
+function openConcept(id) {
+  const c = CONCEPTS[id]; if (!c) return;
+  if ($("#drawer").hidden) lastFocus = document.activeElement;
+  $("#dr-group").textContent = c.g; $("#dr-title").textContent = c.t;
+  const body = $("#dr-body"); body.innerHTML = "";
+  c.p.forEach((t) => body.append(el("p", { text: t })));
+  if (c.w) body.append(el("div", { class: "box" }, el("span", { class: "eyebrow", text: "In this wheel" }), el("p", { text: c.w })));
+  if (c.x) body.append(el("div", { class: "box" }, el("span", { class: "eyebrow", text: "Watch for" }), el("p", { text: c.x })));
+  if (c.r && c.r.length) {
+    const rel = el("div", { class: "related" });
+    c.r.forEach((r) => CONCEPTS[r] && rel.append(el("button", { "data-c": r, text: CONCEPTS[r].t })));
+    body.append(el("span", { class: "eyebrow", text: "Related" }), rel);
+  }
+  $("#drawer").hidden = false; $("#scrim").hidden = false; $("#dr-close").focus();
+}
+function closeConcept() { $("#drawer").hidden = true; $("#scrim").hidden = true; if (lastFocus) lastFocus.focus(); }
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (b) { e.preventDefault(); openConcept(b.dataset.c); } });
+$("#dr-close").onclick = closeConcept; $("#scrim").onclick = closeConcept;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").hidden) closeConcept(); });
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 3200); }
+function copySettings() {
+  const text = "Wheel Lab settings (" + st.mode + "):\n" + JSON.stringify(relevant(st.cfg, st.mode));
+  const box = $("#copy-box");
+  const fallback = () => { box.hidden = false; box.value = text; box.focus(); box.select(); toast("Select-all and copy the text below the button."); };
+  try { navigator.clipboard.writeText(text).then(() => toast("Copied. Paste it into the chat."), fallback); } catch (e) { fallback(); }
+}
+
+// ======================= boot =======================
+$("#parity").textContent = `${Object.keys(L.reference).length}/${Object.keys(L.reference).length}`;
+buildLevers();
+renderConcepts();
+render();
+let rT, lastW = $("main").clientWidth;
+new ResizeObserver(() => {
+  const w = $("main").clientWidth;
+  if (Math.abs(w - lastW) < 4) return;
+  lastW = w; clearTimeout(rT); rT = setTimeout(() => st.tab === "backtest" && render(), 150);
+}).observe($("main"));
+})();
+</script>
+</body>
+</html>
