@@ -76,14 +76,12 @@
   E.epochDay = epochDay; E.isoOf = isoOf;
 
   // ---------- data prep ----------
+  // Shared calendar and benchmarks, plus one price set per underlying
+  // (closes, realized vol, option chains and bars, earnings, model pricing).
   E.prepare = function (L) {
-    const n = L.dates.length;
-    const day = new Int32Array(n), S = Float64Array.from(L.nvda);
-    const dayIndex = new Map();
+    const n = L.dates.length, day = new Int32Array(n), dayIndex = new Map();
     for (let i = 0; i < n; i++) { day[i] = epochDay(L.dates[i]); dayIndex.set(day[i], i); }
-    const lr = new Float64Array(n); lr[0] = NaN;
-    for (let i = 1; i < n; i++) lr[i] = Math.log(S[i] / S[i - 1]);
-    const rollStd = (w) => {
+    const rollStd = (lr, w) => {
       const out = new Float64Array(n).fill(NaN);
       for (let i = w; i < n; i++) { // window lr[i-w+1..i], all valid once i >= w
         let m = 0; for (let j = i - w + 1; j <= i; j++) m += lr[j]; m /= w;
@@ -92,24 +90,31 @@
       }
       return out;
     };
-    const s20 = rollStd(20), s60 = rollStd(60);
-    const rv = new Float64Array(n);
-    for (let i = 0; i < n; i++) rv[i] = 0.5 * s20[i] * SQ252 + 0.5 * s60[i] * SQ252;
-    const chains = new Map();
-    for (const [iso, ch] of Object.entries(L.chains || {})) {
-      chains.set(epochDay(iso), { P: ch.P.slice().sort((a, b) => a[0] - b[0]), C: ch.C.slice().sort((a, b) => a[0] - b[0]) });
+    const tickers = {};
+    for (const [tk, T] of Object.entries(L.tickers)) {
+      const S = Float64Array.from(T.close), lr = new Float64Array(n); lr[0] = NaN;
+      for (let i = 1; i < n; i++) lr[i] = Math.log(S[i] / S[i - 1]);
+      const s20 = rollStd(lr, 20), s60 = rollStd(lr, 60), rv = new Float64Array(n);
+      for (let i = 0; i < n; i++) rv[i] = 0.5 * s20[i] * SQ252 + 0.5 * s60[i] * SQ252;
+      const chains = new Map();
+      for (const [iso, ch] of Object.entries(T.chains || {})) {
+        chains.set(epochDay(iso), { P: ch.P.slice().sort((a, b) => a[0] - b[0]), C: ch.C.slice().sort((a, b) => a[0] - b[0]) });
+      }
+      tickers[tk] = { ticker: tk, S, rv, chains, bars: T.bars, earnings: T.earnings.map(epochDay), barCache: new Map(), model: T.model, capital: T.capital };
     }
-    return {
-      L, n, day, S, dayIndex, rv, chains,
+    const D = {
+      L, n, day, dayIndex, tickers, dates: L.dates,
       nvdaTR: Float64Array.from(L.nvdaTR), spyTR: Float64Array.from(L.spyTR), costTR: Float64Array.from(L.costTR || L.spyTR), tbill: Float64Array.from(L.tbill),
-      earnings: L.earnings.map(epochDay), barCache: new Map(), dates: L.dates,
     };
+    return Object.assign(D, tickers.NVDA);
   };
+  // The dataset seen by one simulation: shared calendar + that ticker's prices.
+  const viewOf = (D, tk) => Object.assign(Object.create(D), D.tickers[tk]);
 
   function bar(D, cid, i) { // real option close on day index i, or NaN
     let b = D.barCache.get(cid);
     if (!b) {
-      const flat = D.L.bars[cid];
+      const flat = D.bars[cid];
       let di = 0; const pts = [];
       for (let k = 0; k < flat.length; k += 2) { di += flat[k]; pts.push([di, flat[k + 1] / 100]); }
       const i0 = pts[0][0], arr = new Float64Array(pts[pts.length - 1][0] - i0 + 1).fill(NaN);
@@ -148,21 +153,41 @@
   const FEE = 0.05, MIN_PREMIUM = 0.05, MIN_DELTA = 0.02, CAP = 25000;
 
   // ---------- simulation ----------
-  E.simulate = function (D, cfg, mode) {
+  E.simulate = function (D0, cfg, mode, ticker = "NVDA") {
+    const D = viewOf(D0, ticker);
+    // Real prices: the smallest account that fits one contract ($25k for NVDA),
+    // with results scaled to $25k so every ticker reads the same way.
+    const CAPX = mode === "real" ? D.capital : CAP, scale = CAP / CAPX;
     const win = E.WINDOWS[mode];
     let i0 = 0; while (D.dates[i0] < win.start) i0++;
     let i1 = D.n - 1; while (D.dates[i1] > win.end) i1--;
     const len = i1 - i0 + 1, real = mode === "real", hs = cfg.halfSpread;
     const eq = new Float64Array(len), state = new Uint8Array(len);
     const trades = [], events = [];
-    let cash = CAP, q = 0, basis = 0, short = null, interest = 0, shareGains = 0, stuckLogged = false;
+    let cash = CAPX, q = 0, basis = 0, short = null, interest = 0, shareGains = 0, stuckLogged = false;
     const tb = (i) => D.tbill[i];
     const fillSell = (px) => real ? Math.max(0, px - Math.max(0.01, px * hs)) - FEE / 100 : px * (1 - hs);
     const fillBuy = (px) => real ? px + Math.max(0.01, px * hs) + FEE / 100 : px * (1 + hs);
-    const modelIv = (kind, i, exp) => {
-      const x = crossesEarnings(D, D.day[i], exp);
-      const m = kind === "P" ? cfg.putMult * (x ? cfg.earnPut : 1) : cfg.callMult * (x ? cfg.earnCall : 1);
-      return m * D.rv[i];
+    // Model IV = realized vol x a multiplier. NVDA uses one calibrated number
+    // (as in the research engine); SPY and COST follow a curve measured at
+    // several strike distances, scaled by the pricing lever.
+    const interp = (curve, x) => {
+      if (x <= curve[0][0]) return curve[0][1];
+      for (let j = 1; j < curve.length; j++) if (x <= curve[j][0]) { const [a, fa] = curve[j - 1], [b, fb] = curve[j]; return fa + (fb - fa) * (x - a) / (b - a); }
+      return curve[curve.length - 1][1];
+    };
+    const modelIv = (kind, i, exp, moneyness = null) => {
+      const x = crossesEarnings(D, D.day[i], exp), M = D.model || {};
+      const curve = kind === "P" ? M.putCurve : M.callCurve;
+      let m = kind === "P" ? cfg.putMult : cfg.callMult;
+      if (curve && curve.length && moneyness != null) m = interp(curve, moneyness) * m / (kind === "P" ? M.putMult : M.callMult);
+      return m * (x ? (kind === "P" ? cfg.earnPut : cfg.earnCall) : 1) * D.rv[i];
+    };
+    // Strike for a target delta when vol depends on the strike: a few fixed-point steps.
+    const solveStrike = (kind, want, S, T, r, i, exp) => {
+      let K = S * (kind === "P" ? 0.95 : 1.05);
+      for (let it = 0; it < 4; it++) K = strikeForDelta(kind, want, S, T, r, modelIv(kind, i, exp, K / S));
+      return K;
     };
     const ev = (k, type, text) => events.push({ k, type, text });
 
@@ -231,7 +256,7 @@
         if (real) { px = bar(D, short.cid, i); if (!isNaN(px)) short.last = px; }
         else {
           const T = Math.max(short.exp - d, 0) / 365;
-          px = bsPrice(short.kind, S, short.K, T, tb(i), modelIv(short.kind, i, short.exp));
+          px = bsPrice(short.kind, S, short.K, T, tb(i), modelIv(short.kind, i, short.exp, short.K / S));
         }
         if (d >= short.exp) {
           const kind = short.kind, K = short.K, qty = short.qty;
@@ -269,7 +294,7 @@
 
     function openPut(k, i, d, S) {
       if (real) {
-        const capital = Math.min(cash, CAP);
+        const capital = Math.min(cash, CAPX);
         const target = Math.min(Math.floor(S * (1 - cfg.put.otm)), Math.floor(capital / 100));
         const p = pickReal("P", i, S, d, target, capital);
         if (!p) return;
@@ -287,8 +312,9 @@
       } else {
         const exp = modelExpiry(D, d, cfg.dte);
         if (cfg.skipEarnings && crossesEarnings(D, d, exp)) return;
-        const T = Math.max(exp - d, 1) / 365, r = tb(i), vol = modelIv("P", i, exp);
-        const K = cfg.put.method === "delta" ? strikeForDelta("P", cfg.put.delta, S, T, r, vol) : S * (1 - cfg.put.otm);
+        const T = Math.max(exp - d, 1) / 365, r = tb(i);
+        const K = cfg.put.method === "delta" ? solveStrike("P", cfg.put.delta, S, T, r, i, exp) : S * (1 - cfg.put.otm);
+        const vol = modelIv("P", i, exp, K / S);
         const delta = bsDelta("P", S, K, T, r, vol);
         if (Math.abs(delta) < MIN_DELTA) return;
         const bs = bsPrice("P", S, K, T, r, vol), px = bs * (1 - hs), qty = cash / K;
@@ -312,9 +338,10 @@
         stuckLogged = false;
       } else {
         const exp = modelExpiry(D, d, cfg.dte);
-        const T = Math.max(exp - d, 1) / 365, r = tb(i), vol = modelIv("C", i, exp);
-        const K = method === "delta" ? strikeForDelta("C", cfg.call.delta, S, T, r, vol)
+        const T = Math.max(exp - d, 1) / 365, r = tb(i);
+        const K = method === "delta" ? solveStrike("C", cfg.call.delta, S, T, r, i, exp)
                                      : (method === "spot" ? S : basis) * (1 + cfg.call.otm);
+        const vol = modelIv("C", i, exp, K / S);
         const delta = bsDelta("C", S, K, T, r, vol);
         if ((cfg.skipEarnings && crossesEarnings(D, d, exp)) || delta < MIN_DELTA) {
           if (!stuckLogged) { ev(k, "stuck", `No call worth selling: shares ${((1 - S / basis) * 100).toFixed(0)}% under basis`); stuckLogged = true; }
@@ -331,7 +358,9 @@
     function fmtQty(x) { return Number.isInteger(x) ? String(x) : x.toFixed(1); }
 
     const premium = trades.reduce((s, t) => s + t.pnl, 0);
-    return { mode, i0, i1, len, eq, state, trades, events, interest, shareGains, premium, endCash: cash, endShares: q };
+    if (scale !== 1) for (let k = 0; k < len; k++) eq[k] *= scale;
+    return { mode, ticker, i0, i1, len, eq, state, trades, events, interest: interest * scale, shareGains: shareGains * scale, premium: premium * scale,
+             endCash: cash, endShares: q, capital: CAPX };
   };
 
   // ---------- benchmarks & metrics ----------

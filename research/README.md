@@ -16,5 +16,6 @@ Setup (separate venv, research deps aren't in the bot's requirements):
     python -m venv research/.venv
     research/.venv/bin/pip install -r research/requirements.txt
     research/.venv/bin/python research/fetch_data.py
-    research/.venv/bin/python research/prefetch.py   # ~2 min, ~12k option contracts
+    research/.venv/bin/python research/prefetch.py   # ~2 min, ~12k NVDA option contracts
+    research/.venv/bin/python research/prefetch_ticker.py SPY COST   # ~5 min
     research/.venv/bin/python research/grid.py

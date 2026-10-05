@@ -13,6 +13,9 @@ import math
 import os
 import pickle
 import sys
+
+import numpy as np
+import pandas as pd
 from datetime import date, datetime, timedelta
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -35,29 +38,118 @@ def col(series):
 tbill = [round(w.tbill_rate(d), 5) for d in dates]
 earnings = [d.isoformat() for d in w.earnings_days(START, date(2027, 1, 31))]
 
-# --- real option chains and bars ---
-cache = pickle.load(open(os.path.join(HERE, "..", "research", "data", "opt_cache.pkl"), "rb"))
-chains, bars, cid_of = {}, [], {}
-for (expiry, kind), strikes in sorted(cache["contracts"].items()):
-    if expiry < REAL_START:
-        continue
-    for strike, sym in sorted(strikes.items()):
-        s = cache["bars"].get(sym)
-        if s is None or not len(s):
-            continue
-        lo = expiry - timedelta(days=75)
-        pts = [(idx[d], int(round(float(v) * 100))) for d, v in s.items() if d in idx and lo <= d <= expiry]
-        if not pts:
-            continue
-        if sym not in cid_of:
-            cid_of[sym] = len(bars)
-            flat, prev = [], None
-            for i, c in sorted(pts):
-                flat += [i - (prev if prev is not None else 0), c]
-                prev = i
-            bars.append(flat)
-        chains.setdefault(expiry.isoformat(), {"P": [], "C": []})[kind].append([strike, cid_of[sym]])
+# --- real option chains and bars, per underlying ---
+DATA = os.path.join(HERE, "..", "research", "data")
+CACHES = {"NVDA": "opt_cache.pkl", "SPY": "opt_cache_SPY.pkl", "COST": "opt_cache_COST.pkl"}
 
+
+def pack_options(cache):
+    chains, bars, cid_of = {}, [], {}
+    for (expiry, kind), strikes in sorted(cache["contracts"].items()):
+        if expiry < REAL_START:
+            continue
+        for strike, sym in sorted(strikes.items()):
+            s = cache["bars"].get(sym)
+            if s is None or not len(s):
+                continue
+            lo = expiry - timedelta(days=75)
+            pts = [(idx[d], int(round(float(v) * 100))) for d, v in s.items() if d in idx and lo <= d <= expiry]
+            if not pts:
+                continue
+            if sym not in cid_of:
+                cid_of[sym] = len(bars)
+                flat, prev = [], None
+                for i, c in sorted(pts):
+                    flat += [i - (prev if prev is not None else 0), c]
+                    prev = i
+                bars.append(flat)
+            chains.setdefault(expiry.isoformat(), {"P": [], "C": []})[kind].append([strike, cid_of[sym]])
+    return chains, bars
+
+
+def closes(sym):
+    s = w._stock_split.loc[sym]["close"].copy()
+    s.index = pd.to_datetime(s.index).tz_convert("America/New_York").date
+    return s
+
+
+def reaction_days(filings):
+    out = []
+    for f in filings:
+        nxt = [d for d in dates if d > f][:1]
+        out.append((nxt[0] if nxt else f + timedelta(days=1)).isoformat())
+    return out
+
+
+PUT_BUCKETS, CALL_BUCKETS = [0.85, 0.90, 0.95, 0.98], [1.02, 1.05, 1.10]
+
+
+def calibrate(sym, cache, px, earn):
+    """Ratio of implied vol (from real option closes, 14-20 days out) to the
+    20/60-day realized-vol blend, measured at several strike distances so the
+    model can follow each stock's skew. Earnings multipliers come from the
+    ~10%-out samples whose expiry crossed a report."""
+    lr = np.log(px / px.shift(1))
+    rv = 0.5 * lr.rolling(20).std() * math.sqrt(252) + 0.5 * lr.rolling(60).std() * math.sqrt(252)
+    exps = sorted({e for (e, k) in cache["contracts"] if cache["contracts"][(e, k)]})
+    got = {("P", m): [] for m in PUT_BUCKETS} | {("C", m): [] for m in CALL_BUCKETS}
+    earn_s = {"P": [], "C": [], "Pn": [], "Cn": []}
+    for d in [d for d in px.index if REAL_START <= d <= date(2026, 9, 15)][::3]:
+        S, r, vol = float(px[d]), w.tbill_rate(d), float(rv[d])
+        f = d + timedelta(days=14); f += timedelta(days=(4 - f.weekday()) % 7)
+        exp = next((c for c in (f, f - timedelta(days=1), f + timedelta(days=7)) if c in exps), None)
+        if not exp:
+            continue
+        T = max((exp - d).days, 1) / 365
+        crosses = any(d < e <= exp for e in earn)
+        for kind, buckets in (("P", PUT_BUCKETS), ("C", CALL_BUCKETS)):
+            ch = cache["contracts"].get((exp, kind), {})
+            for m in buckets:
+                target = m * S
+                for k in sorted(ch, key=lambda k: abs(k - target))[:2]:
+                    if abs(k / S - m) > 0.02:
+                        continue
+                    b = cache["bars"].get(ch[k])
+                    if b is not None and d in b.index and float(b[d]) >= 0.05:
+                        iv = w.implied_vol(kind, float(b[d]), S, k, T, r)
+                        if iv:
+                            ratio = iv / vol
+                            if not crosses:
+                                got[(kind, m)].append(ratio)
+                            if (kind, m) in (("P", 0.90), ("C", 1.10)):
+                                earn_s[kind if crosses else kind + "n"].append(ratio)
+                        break
+    med = lambda v: float(np.median(v)) if len(v) >= 5 else None
+    curve = lambda kind, buckets: [[m, round(med(got[(kind, m)]), 3)] for m in buckets if med(got[(kind, m)])]
+    pc, cc = curve("P", PUT_BUCKETS), curve("C", CALL_BUCKETS)
+    ratio = lambda a, b: round(med(earn_s[a]) / med(earn_s[b]), 2) if med(earn_s[a]) and med(earn_s[b]) else 1.0
+    at = lambda c, m: min(c, key=lambda x: abs(x[0] - m))[1] if c else 1.0
+    return {"putMult": round(at(pc, 0.90), 2), "callMult": round(at(cc, 1.10), 2), "putCurve": pc, "callCurve": cc,
+            "earnPut": ratio("P", "Pn"), "earnCall": ratio("C", "Cn"),
+            "samples": {f"{k}{m}": len(v) for (k, m), v in got.items()}}
+
+
+tickers = {}
+for sym, fname in CACHES.items():
+    cache = pickle.load(open(os.path.join(DATA, fname), "rb"))
+    chains, bars = pack_options(cache)
+    px = closes(sym)
+    if sym == "NVDA":
+        earn_iso = earnings
+    elif sym == "COST":
+        earn_iso = reaction_days(pd.read_pickle(os.path.join(DATA, "earnings_8k_COST.pkl")))
+    else:
+        earn_iso = []
+    earn_d = [date.fromisoformat(e) for e in earn_iso]
+    cal = calibrate(sym, cache, px, earn_d)
+    # NVDA keeps the research model's calibration so it matches the Python engine
+    model = ({"putMult": 1.13, "callMult": 1.0, "earnPut": 1.4, "earnCall": 1.1} if sym == "NVDA"
+             else {k: cal[k] for k in ("putMult", "callMult", "putCurve", "callCurve", "earnPut", "earnCall")})
+    real_px = px[px.index >= REAL_START]
+    need = float(real_px.max()) * 100  # one contract at the highest price in the window
+    capital = 25000 if need <= 25000 else int(math.ceil(need / 10000) * 10000)
+    tickers[sym] = {"close": col(px), "chains": chains, "bars": bars, "earnings": earn_iso, "model": model, "capital": capital}
+    print(f"{sym}: {len(chains)} expiries, {len(bars)} contracts, capital ${capital:,}, model {model}, measured {cal}")
 
 # --- reference results from the Python research engines (parity targets) ---
 def ref_metrics(eq):
@@ -79,14 +171,11 @@ for name, cfg in (("model_current", Sim()), ("model_dte45", Sim(dte_min=45)), ("
 data = {
     "built": datetime.now().isoformat(timespec="minutes"),
     "dates": [d.isoformat() for d in dates],
-    "nvda": col(w.NVDA),
     "nvdaTR": col(w.NVDA_TR),
     "spyTR": col(w.SPY_TR),
     "costTR": col(w.COST_TR),
     "tbill": tbill,
-    "earnings": earnings,
-    "chains": chains,
-    "bars": bars,
+    "tickers": tickers,
     "reference": reference,
 }
 out = os.path.join(HERE, "data.js")
@@ -94,5 +183,5 @@ with open(out, "w") as f:
     f.write("window.LAB_DATA = ")
     json.dump(data, f, separators=(",", ":"))
     f.write(";\n")
-print(f"wrote {out}: {os.path.getsize(out) / 1e6:.1f} MB, {len(dates)} days, {len(chains)} expiries, {len(bars)} contracts")
+print(f"wrote {out}: {os.path.getsize(out) / 1e6:.1f} MB, {len(dates)} days, tickers {list(tickers)}")
 print(json.dumps(reference, indent=1))

@@ -404,6 +404,10 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
   <aside class="side" aria-label="Strategy settings">
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between"><h3>Strategy</h3><button class="linkbtn" id="reset">Reset to bot</button></div>
+      <div class="small" style="margin-top:12px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:6px">Run the wheel on <button class="q" data-c="tickers" aria-label="Explain which stock to wheel">?</button></div>
+      <div class="tabs2" role="group" aria-label="Stock" id="tk-tabs" style="margin-top:6px">
+        <button id="tk-NVDA" aria-pressed="true">NVDA</button><button id="tk-SPY" aria-pressed="false">SPY</button><button id="tk-COST" aria-pressed="false">COST</button>
+      </div>
       <div class="tabs2" role="group" aria-label="Price source">
         <button id="mode-real" aria-pressed="true">Real prices</button>
         <button id="mode-model" aria-pressed="false">Model 2016–26</button>
@@ -609,7 +613,7 @@ const CONCEPTS = {
     w: "The model prices options as a multiple of realized volatility, calibrated on real trades.", x: "", r: ["iv", "vrp"] },
   vrp: { g: "The wheel", t: "Volatility risk premium", s: "Options tend to be priced for more movement than happens.",
     p: ["The gap between implied and realized volatility is the seller's edge. Buyers pay for protection the way people pay for insurance."],
-    w: "For the bot's puts in 2024 to 2026, IV was above the movement that followed in 72% of trades. The model's put pricing default (1.13×) is that calibrated ratio. Set it to 1.00× to see the wheel with no edge.",
+    w: "For the bot's NVDA puts in 2024 to 2026, IV was above the movement that followed in 72% of trades. The model's NVDA put pricing (1.13×) is that measured ratio; SPY and COST use ratios measured at several strike distances (SPY's far-out puts run over 2×). Lower the setting toward 1.00× to see the wheel with less edge.",
     x: "Research finds this edge is much smaller for single stocks than for indexes, and it flips in crashes.", r: ["iv", "volfilter"] },
   tp: { g: "The wheel", t: "Take profit", s: "Buy the option back early once you've captured part of the premium.",
     p: ["Once the option has lost a set share of its value (the bot uses 50%), buy it back and sell a new one. It frees capital and shortens the time you're exposed."],
@@ -654,6 +658,11 @@ const CONCEPTS = {
   winrate: { g: "Reading results", t: "The win rate trap", s: "Winning most trades says little.",
     p: ["Short options win most of the time, so the win rate looks great. What matters is the average win against the size of the rare big losses."],
     w: "In 2024 to 2026 the bot's rules won 94% of trades. The average win was $59 and the worst trade lost $1,586.", x: "", r: ["worstmonth", "attribution"] },
+  tickers: { g: "The wheel", t: "Which stock to wheel", s: "NVDA, SPY or COST: same rules, very different results.",
+    p: ["The toggle runs the same rules on a different stock, using that stock's own real option prices and measured pricing. It answers whether the wheel itself is any good, or whether it only worked because NVDA went up 10×.",
+        "A fixed \"10% below\" strike means very different risk on each stock. NVDA swings about 45% a year, so 10% below is a 0.07 to 0.10 delta. SPY swings about 15%, so 10% below is around 0.02 delta: almost no premium and almost never assigned. Choosing strikes by delta keeps the risk comparable across stocks."],
+    w: "One SPY contract needs about $77k of cash and one COST contract about $105k, so the bot's $25k can't trade either. The lab runs them on the smallest account that fits one contract and shows results per $25k. Index options (SPY) tend to carry a bigger seller's edge than single stocks, which shows up in the model.",
+    x: "Dividends paid on shares you hold after assignment aren't counted. That's small for these three, but it slightly understates SPY.", r: ["delta", "vrp", "benchmark"] },
   ev: { g: "Reading results", t: "EV (expected value) per trade", s: "The average result of one option trade.",
     p: ["Win rate times the average win, minus the loss rate times the average loss. Positive EV means the trades make money on average.", "In Real mode it's in dollars per contract. In the Model it's a percentage of the capital at risk, because the dollar size grows over the years."],
     w: "The bot's rules on real prices won 94% of trades for about $59 each and lost about $585 on the rest, which nets out to roughly +$20 a trade. Small, positive, and very sensitive to the size of the rare losses.",
@@ -765,18 +774,19 @@ const WATCH = [
 ];
 
 // ======================= state & engine glue =======================
-const st = { mode: "real", cfg: clone(E.BOT_RULES), log: { real: false, model: true }, range: { real: "ALL", model: "ALL" },
+const botRules = (tk) => { const c = clone(E.BOT_RULES), M = D.tickers[tk].model; return Object.assign(c, { putMult: M.putMult, callMult: M.callMult, earnPut: M.earnPut, earnCall: M.earnCall }); };
+const st = { ticker: "NVDA", mode: "real", cfg: botRules("NVDA"), log: { real: false, model: true }, range: { real: "ALL", model: "ALL" },
   cmp: { bot: true, nvda: true, spy: true, cost: true, tbill: true }, blind: false, revealed: false, trace: "all", tab: "backtest" };
 let seen = new Set();
 try { seen = new Set(JSON.parse(localStorage.getItem("wheellab.tries") || "[]")); } catch (e) { /* storage unavailable */ }
 const cache = new Map();
-function evaluate(cfg, mode) {
-  const k = mode + JSON.stringify(cfg);
+function evaluate(cfg, mode, tk = st.ticker) {
+  const k = tk + mode + JSON.stringify(cfg);
   let r = cache.get(k);
   if (!r) {
     if (cache.size > 600) cache.clear();
-    const run = E.simulate(D, cfg, mode);
-    r = { run, bench: E.benchmarks(D, run.i0, run.i1), cfg, mode };
+    const run = E.simulate(D, cfg, mode, tk);
+    r = { run, bench: E.benchmarks(D, run.i0, run.i1), cfg, mode, tk };
     cache.set(k, r);
   }
   return r;
@@ -790,14 +800,14 @@ function relevant(cfg, mode) {
   return r;
 }
 function changedLevers(cfg, mode) {
-  const a = relevant(cfg, mode), b = relevant(E.BOT_RULES, mode);
+  const a = relevant(cfg, mode), b = relevant(botRules(st.ticker), mode);
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
 const isBotNow = () => changedLevers(st.cfg, st.mode).length === 0;
 const triesCount = () => PRIOR_TRIES + seen.size;
 function noteTry() {
   if (isBotNow()) return;
-  const k = st.mode + JSON.stringify(relevant(st.cfg, st.mode));
+  const k = st.ticker + st.mode + JSON.stringify(relevant(st.cfg, st.mode));
   if (!seen.has(k)) { seen.add(k); try { localStorage.setItem("wheellab.tries", JSON.stringify([...seen])); } catch (e) { /* ignore */ } }
 }
 function luckTest(resA, resB, a, b) {
@@ -819,7 +829,7 @@ const RANGE_WORDS = { "1M": "Past month", "3M": "Past 3 months", "6M": "Past 6 m
 // ======================= render =======================
 let charts = {}, view = null;
 function render() {
-  const mode = st.mode, res = evaluate(st.cfg, mode), base = evaluate(E.BOT_RULES, mode);
+  const mode = st.mode, res = evaluate(st.cfg, mode), base = evaluate(botRules(st.ticker), mode), tk = st.ticker;
   const run = res.run, split = E.splitIndex(D, run), blindNow = st.blind && !st.revealed, end = blindNow ? split - 1 : run.len - 1;
   const days = RANGES[mode].find(([k]) => k === st.range[mode])?.[1] ?? null;
   let k0 = 0;
@@ -830,17 +840,18 @@ function render() {
   C = readColors(); Dots.setColor(C.accent);
   const m = metricsOf(res, run.eq, 0, end), mb = metricsOf(base, base.run.eq, 0, end);
   const mn = metricsOf(res, res.bench.nvda, 0, end), ms = metricsOf(res, res.bench.spy, 0, end), mc = metricsOf(res, res.bench.cost, 0, end);
+  const mu = { NVDA: mn, SPY: ms, COST: mc }[tk];
   const stats = statsUpTo(run, end), lt = luckTest(res, base, 0, end);
   const capN = E.capm(run.eq, res.bench.nvda, res.bench.tbill, 0, end), capS = E.capm(run.eq, res.bench.spy, res.bench.tbill, 0, end), capC = E.capm(run.eq, res.bench.cost, res.bench.tbill, 0, end);
   const ev = E.tradeEV(end >= run.len - 1 ? run.trades : run.trades.filter((t) => t.k1 <= end));
   $("#who").textContent = view.isBot ? "The bot's rules" : "Your rules";
-  $("#who-mode").textContent = `· ${mode === "real" ? "Real prices" : "Model"}${blindNow ? " · design period" : ""}`;
+  $("#who-mode").textContent = `· ${tk} · ${mode === "real" ? "Real prices" : "Model"}${blindNow ? " · design period" : ""}`;
   setHero(null);
   renderRangeBar(); renderCompare(null);
   renderCharts();
-  renderStats(m, mb, mn, mc, stats, capN, capS, capC, ev);
+  renderStats(m, mb, mu, stats, capN, capS, capC, ev, tk);
   $("#stats-when").textContent = `${fmtDate(D.dates[run.i0])} to ${fmtDate(D.dates[run.i0 + end])}`;
-  renderStory(m, mb, mn, ms, mc, lt, stats);
+  renderStory(m, mb, mn, ms, mc, mu, lt, stats, tk);
   renderStress(blindNow);
   renderGuard(m, lt, stats);
   renderOOS(split, blindNow);
@@ -911,12 +922,13 @@ let replayTimer = null;
 function renderCharts() {
   if (replayTimer) { cancelAnimationFrame(replayTimer); replayTimer = null; }
   const { res, base, end, k0, isBot } = view, run = res.run, n = end + 1;
+  const und = res.bench[st.ticker.toLowerCase()], undColor = { NVDA: C.nvda, SPY: C.spy, COST: C.cost }[st.ticker];
   const xs = new Array(n), ddY = new Array(n), ddN = new Array(n);
   let pY = 0, pN = 0;
   for (let k = 0; k < n; k++) {
     xs[k] = D.day[run.i0 + k] * 86400;
-    pY = Math.max(pY, run.eq[k]); pN = Math.max(pN, res.bench.nvda[k]);
-    ddY[k] = (run.eq[k] / pY - 1) * 100; ddN[k] = (res.bench.nvda[k] / pN - 1) * 100;
+    pY = Math.max(pY, run.eq[k]); pN = Math.max(pN, und[k]);
+    ddY[k] = (run.eq[k] / pY - 1) * 100; ddN[k] = (und[k] / pN - 1) * 100;
   }
   const width = Math.max(260, $("#ch-eq").clientWidth), tz = (ts) => uPlot.tzDate(new Date(ts * 1e3), "Etc/UTC"), sync = { key: "wl" };
   const xmin = xs[k0], xmax = xs[end], logScale = st.log[st.mode];
@@ -974,7 +986,7 @@ function renderCharts() {
     cursor: { sync, drag: { x: false, y: false }, y: false, points: { size: 6, width: 2, fill: C.panel } },
     scales: { x: { time: true, min: xmin, max: xmax, auto: false }, y: { range: () => [ddLo * 1.08 - 0.5, 0] } },
     axes: [{ ...AX(), size: 40, grid: { show: false } }, { ...AX(), side: 1, size: 78, values: (u, v) => v.map((x) => x == null ? "" : (x < 0 ? MINUS : "") + Math.abs(x).toFixed(0) + "%") }],
-    series: [{}, { label: "NVDA", stroke: C.nvda, width: 1.25, points: { show: false } }, { label: "Yours", stroke: C.down, width: 1.75, fill: `rgba(${drgb},0.14)`, points: { show: false } }],
+    series: [{}, { label: st.ticker, stroke: undColor, width: 1.25, points: { show: false } }, { label: "Yours", stroke: C.down, width: 1.75, fill: `rgba(${drgb},0.14)`, points: { show: false } }],
   }, [xs, ddN, ddY]);
   const stateColors = [C.cash, C.put, C.call, C.stuck];
   mount("state", {
@@ -999,9 +1011,12 @@ function renderCharts() {
   }, [xs, new Array(n).fill(0.5)]);
   const ls = $("#legend-state"); ls.innerHTML = "";
   [[C.put, "A put"], [C.call, "Shares + call"], [C.stuck, "Shares, no call"], [C.cash, "Cash"]].forEach(([c, t]) => ls.append(el("span", { class: "it" }, el("span", { class: "sw", style: `background:${c}` }), t)));
+  const cap = run.capital, tkName = st.ticker, Sx = D.tickers[tkName].S;
+  let hiPx = 0; for (let k = 0; k < run.len; k++) hiPx = Math.max(hiPx, Sx[run.i0 + k]);
   $("#mode-note").textContent = st.mode === "real"
-    ? "Real NVDA option prices (daily last trades) from Alpaca, one contract within $25k like the bot. Each trade gives up part of the bid/ask spread plus fees, and idle cash earns T-bill rates."
-    : "Modelled option prices calibrated on 2024 to 2026 real trades, fully invested. Trust the direction more than the exact numbers.";
+    ? `Real ${tkName} option prices (daily last trades) from Alpaca, one contract at a time like the bot. Each trade gives up part of the bid/ask spread plus fees, and idle cash earns T-bill rates.` +
+      (cap > 25000 ? ` One ${tkName} contract needs up to $${Math.round(hiPx / 10)}k of cash, so the bot's $25k couldn't trade it: this run uses a $${(cap / 1000).toFixed(0)}k account and shows results per $25k so they compare with NVDA.` : "")
+    : `Modelled ${tkName} option prices calibrated on its 2024 to 2026 real option prices, fully invested. Trust the direction more than the exact numbers.`;
 }
 function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
 function lum(hex) { const n = parseInt(hex.slice(1), 16), c = [n >> 16 & 255, n >> 8 & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
@@ -1017,17 +1032,17 @@ function stat(label, concept, value, sub, cls = "") {
   return el("div", { class: "stat" }, el("div", { class: "k" }, label, el("button", { class: "q", "data-c": concept, "aria-label": "Explain " + label, text: "?" })),
     el("div", { class: "v " + cls, text: value }), el("div", { class: "s", text: sub }));
 }
-function renderStats(m, mb, mn, mc, s, capN, capS, capC, ev) {
+function renderStats(m, mb, mu, s, capN, capS, capC, ev, tk) {
   const host = $("#stats"); host.innerHTML = "";
   const bot = (x) => view.isBot ? "" : `Bot ${x} · `;
   host.append(
-    stat("Per year", "cagr", pct(m.cagr, 1, true), `${bot(pct(mb.cagr))}NVDA ${pct(mn.cagr)} · COST ${pct(mc.cagr)}`),
-    stat("Worst drop", "maxdd", pct(m.maxDD), m.recovery != null ? `Recovered in ${m.recovery} days` : "Not recovered yet"),
-    stat("Sharpe", "sharpe", num(m.sharpe), `${bot(num(mb.sharpe))}NVDA ${num(mn.sharpe)} · COST ${num(mc.sharpe)}`),
-    stat("Bumpiness", "vol", pct(m.vol, 0), `NVDA ${pct(mn.vol, 0)} · COST ${pct(mc.vol, 0)} a year`),
+    stat("Per year", "cagr", pct(m.cagr, 1, true), `${bot(pct(mb.cagr))}${tk} held ${pct(mu.cagr)}`),
+    stat("Worst drop", "maxdd", pct(m.maxDD), (m.recovery != null ? `Recovered in ${m.recovery} days` : "Not recovered yet") + ` · ${tk} ${pct(mu.maxDD, 0)}`),
+    stat("Sharpe", "sharpe", num(m.sharpe), `${bot(num(mb.sharpe))}${tk} held ${num(mu.sharpe)}`),
+    stat("Bumpiness", "vol", pct(m.vol, 0), `${tk} held ${pct(mu.vol, 0)} a year`),
     stat("Worst month", "worstmonth", pct(m.worstMonth), `Bad days avg ${pct(m.cvar5, 2)}`),
     stat("No-income days", "stuck", pct(s.stuckDays, 0), `Holding shares ${pct(s.shareDays, 0)} of days`),
-    stat("Trades", "winrate", String(s.trades), `${s.assigned} assigned · ${s.called} called away`),
+    stat("Trades", "winrate", String(s.trades), `${s.assigned} assigned · ${s.called} called away · median Δ ${num(s.putDelta, 2)}`),
     stat("Win rate", "winrate", pct(s.winRate, 0), `Avg ${money(s.avgWin)} · worst ${money(s.worst)}`),
   );
   host.append(el("div", { class: "stat-h" }, "Edge", el("button", { class: "q", "data-c": "alpha", "aria-label": "Explain alpha", text: "?" })));
@@ -1044,27 +1059,27 @@ function renderStats(m, mb, mn, mc, s, capN, capS, capC, ev) {
     stat("Beta to NVDA", "beta", num(capN.beta), move(capN.beta, "NVDA")),
     stat("Beta to SPY", "beta", num(capS.beta), move(capS.beta, "SPY")),
     stat("Beta to COST", "beta", num(capC.beta), move(capC.beta, "COST")),
-    stat("Sortino", "sortino", num(m.sortino), `NVDA ${num(mn.sortino)} · COST ${num(mc.sortino)}`),
-    stat("Alpha vs NVDA", "alpha", `${pct(capN.alpha, 1, true)}/yr`, noise(capN.t)),
-    stat("Alpha vs SPY", "alpha", `${pct(capS.alpha, 1, true)}/yr`, noise(capS.t)),
-    stat("Alpha vs COST", "alpha", `${pct(capC.alpha, 1, true)}/yr`, noise(capC.t)),
+    stat("Sortino", "sortino", num(m.sortino), `${tk} held ${num(mu.sortino)}`),
+    stat(`Alpha vs NVDA${tk === "NVDA" ? " (the stock)" : ""}`, "alpha", `${pct(capN.alpha, 1, true)}/yr`, noise(capN.t)),
+    stat(`Alpha vs SPY${tk === "SPY" ? " (the stock)" : ""}`, "alpha", `${pct(capS.alpha, 1, true)}/yr`, noise(capS.t)),
+    stat(`Alpha vs COST${tk === "COST" ? " (the stock)" : ""}`, "alpha", `${pct(capC.alpha, 1, true)}/yr`, noise(capC.t)),
   );
 }
 function pill(text, kind, icon) {
   const col = { good: C.good, warn: C.warn, serious: C.serious, critical: C.critical, muted: C.muted }[kind] || C.muted;
   return el("span", { class: "pill" }, el("span", { class: "ic", style: `background:${col}`, text: icon }), text);
 }
-function renderStory(m, mb, mn, ms, mc, lt, stats) {
+function renderStory(m, mb, mn, ms, mc, mu, lt, stats, tk) {
   const v1 = $("#verdict-1"); v1.innerHTML = "";
   v1.append(el("strong", { text: view.isBot ? "The bot's rules" : "Your rules" }), ` made ${pct(m.cagr)} a year with a worst drop of ${pct(m.maxDD)}. `,
     ...(view.isBot ? [] : [`The bot's rules made ${pct(mb.cagr)} with a worst drop of ${pct(mb.maxDD)}. `]),
-    `Just holding NVDA made ${pct(mn.cagr)} (worst drop ${pct(mn.maxDD)}), SPY made ${pct(ms.cagr)} (${pct(ms.maxDD)}), and steady COST made ${pct(mc.cagr)} (${pct(mc.maxDD)}).`);
+    `Just holding ${tk}, the stock being wheeled, made ${pct(mu.cagr)} (worst drop ${pct(mu.maxDD)}). For reference, NVDA made ${pct(mn.cagr)}, SPY ${pct(ms.cagr)} and COST ${pct(mc.cagr)}.`);
   $("#verdict-2").textContent = view.isBot ? "Change a setting in the Strategy panel to test an idea. Everything is compared with these rules and with just holding NVDA, SPY, COST or T-bills."
     : `Risk-adjusted, your rules are ${m.sharpe > mb.sharpe ? "better" : "worse"} than the bot's (Sharpe ${num(m.sharpe)} vs ${num(mb.sharpe)}). ` +
       (lt.diff <= 0 ? "" : lt.survives ? `The edge is bigger than luck would produce after ${lt.N} tries.` : `After ${lt.N} tries, an edge this size could still be luck.`);
   const p = $("#verdict-pills"); p.innerHTML = "";
-  p.append(m.sharpe > mn.sharpe ? pill("Smoother than holding NVDA", "good", "✓") : pill("Bumpier than holding NVDA, for the return", "serious", "!"));
-  p.append(m.cagr > mn.cagr ? pill("Beats NVDA's return", "good", "✓") : pill(`${pct(mn.cagr - m.cagr)} a year behind NVDA`, "warn", "▼"));
+  p.append(m.sharpe > mu.sharpe ? pill(`Smoother than holding ${tk}`, "good", "✓") : pill(`Bumpier than holding ${tk}, for the return`, "serious", "!"));
+  p.append(m.cagr > mu.cagr ? pill(`Beats ${tk}'s return`, "good", "✓") : pill(`${pct(mu.cagr - m.cagr)} a year behind ${tk}`, "warn", "▼"));
   if (!view.isBot) p.append(lt.diff <= 0 ? pill("No edge over the bot's rules", "muted", "–") : lt.survives ? pill("Passes the luck check", "good", "✓") : pill("Could be luck", "warn", "?"));
   if (stats.stuckDays > 0.05) p.append(pill(`No income on ${pct(stats.stuckDays, 0)} of days`, "serious", "!"));
   const nLev = changedLevers(st.cfg, st.mode).length;
@@ -1271,14 +1286,16 @@ function buildTicket() {
   stepper("cotm", () => st.cfg.call.otm, (v) => (st.cfg.call.otm = v), 0.01, 0, 0.2);
   stepper("cdel", () => st.cfg.call.delta, (v) => (st.cfg.call.delta = v), 0.05, 0.1, 0.45);
   stepper("cund", () => st.cfg.call.under, (v) => (st.cfg.call.under = v), 0.05, 0.1, 0.4);
-  stepper("pm", () => st.cfg.putMult, (v) => (st.cfg.putMult = v), 0.05, 0.88, 1.43);
+  $("#pm-dn").onclick = () => { const M = D.tickers[st.ticker].model; st.cfg.putMult = Math.max(+(M.putMult * 0.75).toFixed(2), +(st.cfg.putMult - 0.05).toFixed(2)); render(); };
+  $("#pm-up").onclick = () => { const M = D.tickers[st.ticker].model; st.cfg.putMult = Math.min(+(M.putMult * 1.3).toFixed(2), +(st.cfg.putMult + 0.05).toFixed(2)); render(); };
   stepper("hs", () => st.cfg.halfSpread, (v) => (st.cfg.halfSpread = v), 0.005, 0.01, 0.06);
   fillSegTrace();
-  $("#reset").onclick = () => { st.cfg = clone(E.BOT_RULES); render(); };
+  $("#reset").onclick = () => { st.cfg = botRules(st.ticker); render(); };
   $("#blind").onchange = (e) => { st.blind = e.target.checked; st.revealed = false; render(); };
   $("#reveal").onclick = () => { st.revealed = true; render(); toast("Test period revealed. Judge your rules on it before changing anything."); };
   $("#logscale").onclick = () => { st.log[st.mode] = !st.log[st.mode]; render(); };
   $("#replay").onclick = replay;
+  for (const tk of ["NVDA", "SPY", "COST"]) $("#tk-" + tk).onclick = () => setTicker(tk);
   $("#mode-real").onclick = () => setMode("real");
   $("#mode-model").onclick = () => setMode("model");
   $("#copy").onclick = copySettings;
@@ -1291,9 +1308,17 @@ function fillSegTrace() {
 }
 function syncTrace() { $("#trace-seg").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === st.trace))); }
 function setMode(mode) { st.mode = mode; if (mode === "model") { st.cfg.volFilter = null; st.cfg.sizing = "one"; } render(); }
+// Keep the user's rule choices, but take the new stock's measured option pricing.
+function setTicker(tk) {
+  const M = D.tickers[tk].model;
+  st.ticker = tk;
+  Object.assign(st.cfg, { putMult: M.putMult, callMult: M.callMult, earnPut: M.earnPut, earnCall: M.earnCall });
+  render();
+}
 function syncTicket() {
   const c = st.cfg, real = st.mode === "real", changed = new Set(changedLevers(c, st.mode));
   $("#mode-real").setAttribute("aria-pressed", String(real)); $("#mode-model").setAttribute("aria-pressed", String(!real));
+  for (const tk of ["NVDA", "SPY", "COST"]) $("#tk-" + tk).setAttribute("aria-pressed", String(st.ticker === tk));
   $("#mode-sub").textContent = real ? "June 2024 to now, actual option prices" : "2016 to now, modelled prices, includes crashes";
   $("#put-method").value = c.put.method;
   $("#put-val").textContent = c.put.method === "otm" ? `${Math.round(c.put.otm * 100)}%` : c.put.delta.toFixed(2);
@@ -1317,8 +1342,8 @@ function syncTicket() {
   $("#blind").checked = st.blind;
   syncTrace();
 }
-function applyOver(over) {
-  const c = clone(E.BOT_RULES);
+function applyOver(over, tk = st.ticker) {
+  const c = botRules(tk);
   for (const [k, v] of Object.entries(over || {})) if (v && typeof v === "object") Object.assign(c[k], v); else c[k] = v;
   return c;
 }
@@ -1342,7 +1367,7 @@ function renderWatch() {
     b.append(svg, el("span", { class: "px", style: `background:${pbg};color:${lum(pbg) > 0.25 ? "#0b0c0e" : "#ffffff"}`, text: `${pct(m.cagr, 1, true)}/yr` }));
     host.append(b);
   }
-  $("#wl-sub").textContent = `Ideas from the research · ${st.mode === "real" ? "Real prices" : "Model 2016–26"}`;
+  $("#wl-sub").textContent = `Ideas from the research · ${st.ticker} · ${st.mode === "real" ? "Real prices" : "Model 2016–26"}`;
 }
 
 // ======================= research & learn =======================
@@ -1356,13 +1381,13 @@ function liveLine(cfg) {
   const row = el("div", { class: "row" });
   for (const mode of ["real", "model"]) {
     if (mode === "model" && cfg.volFilter) { row.append(el("span", { class: "st", text: "Model: needs real prices" })); continue; }
-    const r = evaluate(cfg, mode), m = metricsOf(r, r.run.eq, 0, r.run.len - 1);
-    row.append(el("span", { class: "st" }, mode === "real" ? "Real 2024–26 " : "Model 2016–26 ", el("b", { text: `${pct(m.cagr, 1, true)}/yr` }), ` · drop ${pct(m.maxDD)} · Sharpe ${num(m.sharpe)}`));
+    const r = evaluate(cfg, mode, "NVDA"), m = metricsOf(r, r.run.eq, 0, r.run.len - 1);
+    row.append(el("span", { class: "st" }, mode === "real" ? "NVDA real 2024–26 " : "NVDA model 2016–26 ", el("b", { text: `${pct(m.cagr, 1, true)}/yr` }), ` · drop ${pct(m.maxDD)} · Sharpe ${num(m.sharpe)}`));
   }
   return row;
 }
 function tryBtn(cfg, mode) {
-  return el("button", { class: "tbtn", onclick: () => { st.cfg = cfg; st.mode = mode || (cfg.volFilter ? "real" : st.mode); setTab("backtest"); } }, "Try it →");
+  return el("button", { class: "tbtn", onclick: () => { st.ticker = "NVDA"; st.cfg = cfg; st.mode = mode || (cfg.volFilter ? "real" : st.mode); setTab("backtest"); } }, "Try it →");
 }
 function renderLog() {
   const box = $("#view-log"); box.innerHTML = "";
@@ -1373,7 +1398,7 @@ function renderLog() {
     const src = el("div", { class: "src" });
     p.src.forEach(([name, url], i) => { if (i) src.append(" · "); src.append(el("a", { href: url, target: "_blank", rel: "noopener", text: name })); });
     const art = el("article", { class: "art" }, src, el("h3", { text: p.t }), el("p", { text: p.f }), el("p", { class: "fix" }, el("b", { text: "What we can do: " }), p.fix));
-    if (p.over) { const cfg = applyOver(p.over); const row = liveLine(cfg); row.append(tryBtn(cfg, p.mode)); art.append(row); }
+    if (p.over) { const cfg = applyOver(p.over, "NVDA"); const row = liveLine(cfg); row.append(tryBtn(cfg, p.mode)); art.append(row); }
     list.append(art);
   }
   box.append(list);
@@ -1384,7 +1409,7 @@ function renderLog() {
     const kind = e.s[1], icon = { good: "✓", warn: "?", critical: "!", muted: "–" }[kind];
     const art = el("article", { class: "art" }, el("div", { class: "row", style: "margin:0" }, pill(e.s[0], kind, icon)), el("h3", { text: e.t }),
       el("p", {}, el("strong", { text: e.q + " " }), e.n));
-    if (e.over) { const cfg = applyOver(e.over); const row = liveLine(cfg); row.append(tryBtn(cfg, e.mode)); art.append(row); }
+    if (e.over) { const cfg = applyOver(e.over, "NVDA"); const row = liveLine(cfg); row.append(tryBtn(cfg, e.mode)); art.append(row); }
     list2.append(art);
   }
   box.append(list2);
@@ -1422,7 +1447,7 @@ $("#dr-close").onclick = closeConcept; $("#scrim").onclick = closeConcept;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#drawer").hidden) closeConcept(); });
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 3200); }
 function copySettings() {
-  const text = "Wheel Lab settings (" + st.mode + "):\n" + JSON.stringify(relevant(st.cfg, st.mode));
+  const text = "Wheel Lab settings (" + st.ticker + ", " + st.mode + "):\n" + JSON.stringify(relevant(st.cfg, st.mode));
   const box = $("#copy-box");
   const fallback = () => { box.hidden = false; box.value = text; box.focus(); box.select(); toast("Select the text and copy it."); };
   try { navigator.clipboard.writeText(text).then(() => toast("Copied. Paste it into the chat."), fallback); } catch (e) { fallback(); }
