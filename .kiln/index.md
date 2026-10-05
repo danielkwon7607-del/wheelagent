@@ -71,6 +71,9 @@ adding something means editing or replacing something — not appending.
   Daniel's call. Lay out tradeoffs, don't pick for him.
 - Bot code goes live on the next cron run after it reaches main. Work on a
   branch; merge outside market hours and only after Daniel's review.
+- Wheel Lab look is Daniel's pick (2026-10-05): Robinhood/TradingView stock
+  page, neutral ink/paper, green/pink only for up/down, no blue, calm.
+  He rejected a terminal look and a bubbly glass look before this.
 - The bot only cancels its own (wheelbot-) orders. Any other open NVDA
   order blocks it until gone — never auto-cancel manual orders.
 
