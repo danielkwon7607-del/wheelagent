@@ -7,9 +7,10 @@ adding something means editing or replacing something — not appending.
 <!-- what was chosen and why, so it is not re-litigated -->
 - NVDA only. Confirmed by Daniel 2026-10-01. The SOFI / multi-ticker spec
   (docs/superpowers/specs/2026-07-07-...) and its plan are SHELVED, not
-  pending. Do not implement them or generalize the bot for other tickers
-  unless Daniel asks. A separate "scan other equities for best premium per
-  unit of risk" idea exists but is a future, separate version.
+  pending. Do not generalize the live bot for other tickers unless Daniel
+  asks. The Wheel Lab can backtest SPY and COST (his ask, 2026-10-05); that
+  is research only. A "scan equities for premium per unit of risk" idea is
+  a future, separate version.
 - Capital: $25k set aside for the challenge. Enforced in code as
   strategy.CAPITAL_CAP (put collateral + share cost basis), whatever the
   paper account balance says.
@@ -51,6 +52,9 @@ adding something means editing or replacing something — not appending.
   lab/dist/wheel-lab.html with data.js + engine.js as files). engine.js must
   match research/ on the original rules: run node lab/parity_test.js after
   any engine change. Tries start at 40 (the research grid + model runs).
+  Per-ticker data (NVDA/SPY/COST, research/prefetch_ticker.py): SPY/COST
+  run on the smallest account fitting one contract ($80k/$110k), shown per
+  $25k; their model IV follows measured skew curves, NVDA stays flat 1.13.
 - logging_setup.py: log/summary timestamps in Pacific (Daniel is on the
   west coast). Display only — market hours stay in New York time; never
   move is_market_hours to Pacific (it would trade 12:30-7pm ET).
@@ -72,12 +76,11 @@ adding something means editing or replacing something — not appending.
 - Bot code goes live on the next cron run after it reaches main. Work on a
   branch; merge outside market hours and only after Daniel's review.
 - Wheel Lab look is Daniel's pick (2026-10-05): Robinhood/TradingView stock
-  page, neutral ink/paper, green/pink only for up/down, no blue, calm.
-  Benchmark lines (his pick): NVDA forest green, SPY black (white in
-  dark), T-bills dotted gold, bot's rules blue everywhere (main line too),
-  COST brown dash-dot (steady-stock benchmark). Alpha vs COST is inflated
-  (beta ~0.1, so NVDA exposure reads as alpha): judge edge vs NVDA. Gold vs green fails CVD in
-  dark mode, so keep the dots/dashes + legend + price tags.
+  page, neutral ink/paper, green/pink only for up/down, calm, no blue
+  chrome. Lines (his pick): NVDA forest green, SPY black (white in dark),
+  T-bills dotted gold, bot's rules blue everywhere, COST brown dash-dot.
+  Gold vs green fails CVD in dark mode: keep dashes + legend + price tags.
+  Alpha vs COST is inflated (beta ~0.1): judge edge vs the stock wheeled.
   He rejected a terminal look and a bubbly glass look before this.
 - The bot only cancels its own (wheelbot-) orders. Any other open NVDA
   order blocks it until gone — never auto-cancel manual orders.
@@ -106,7 +109,8 @@ adding something means editing or replacing something — not appending.
 - Limit orders sit at mid. An unfilled order is cancelled after 10 min and
   re-priced at the new mid on the next run; there is no stepping toward
   bid/ask yet (Phase 4), so a close may never fill and ride to expiry.
-- One NVDA put ties up ~83% of $25k (a $207.50 strike); the rest sits idle.
+- "10% below spot" is ~0.07-0.10 delta on NVDA but ~0.02 on SPY and ~0.03
+  on COST (tiny premium, never assigned). Compare stocks by delta.
 - No earnings filter. NVDA reports ~late Nov; the bot will sell through it.
 - After assignment in a drop, "10% above cost basis" can be far OTM and
   pay ~nothing. No fallback or roll rule exists yet.
