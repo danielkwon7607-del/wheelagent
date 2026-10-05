@@ -30,11 +30,11 @@
   --accent-ink: var(--up-ink);
   --go-bg: var(--up-ink);
   --go-fg: #ffffff;
-  --cmp-bot: #565c64;
-  --cmp-nvda: #9aa0a8;
-  --cmp-spy: #bfc4ca;
-  --cmp-tbill: #dadde1;
-  --st-put: #c98500;
+  --cmp-bot: #8a9099;
+  --cmp-nvda: #1f6b2a;
+  --cmp-spy: #111316;
+  --cmp-tbill: #c98500;
+  --st-put: #1d8fa8;
   --st-call: #7b61ff;
   --st-stuck: #e5484d;
   --st-cash: #eceef1;
@@ -52,8 +52,8 @@
     --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
     --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
     --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-    --cmp-bot: #c4c9cf; --cmp-nvda: #8a9098; --cmp-spy: #5d636b; --cmp-tbill: #3d4249;
-    --st-put: #c98500; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
+    --cmp-bot: #8a9098; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
+    --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
     --go-bg: var(--up); --go-fg: #0b0c0e;
   }
@@ -64,8 +64,8 @@
   --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
   --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
   --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-  --cmp-bot: #c4c9cf; --cmp-nvda: #8a9098; --cmp-spy: #5d636b; --cmp-tbill: #3d4249;
-  --st-put: #c98500; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
+  --cmp-bot: #8a9098; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
+  --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
   --go-bg: var(--up); --go-fg: #0b0c0e;
 }
@@ -131,10 +131,13 @@ section.sec:first-child { border-top: 0; padding-top: 0; }
 .tbtn { border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
 .tbtn:hover { border-color: var(--ink-2); }
 .tbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.cmp { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 12px 4px; }
+.cmp { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 14px 0; }
+.cmp .lg { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px; border-radius: 999px; font-size: 13px; font-weight: 600; background: color-mix(in srgb, var(--accent) 11%, transparent); }
+.cmp svg { display: block; flex: none; }
 .cmp button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 11px 5px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-2); }
 .cmp button[aria-pressed="true"] { border-color: var(--line-2); color: var(--ink); background: var(--sunken); }
-.cmp button[aria-pressed="false"] .key { opacity: 0.25; }
+.cmp button[aria-pressed="false"] svg { opacity: 0.25; }
+.cmp button[aria-pressed="false"] b { color: var(--muted); font-weight: 500; }
 .cmp .key { width: 14px; height: 3px; border-radius: 2px; }
 .cmp b { font-weight: 600; }
 .mini-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 18px 0 4px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
@@ -320,6 +323,7 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
           <div class="val" id="hero-val">$0</div>
           <div class="chg"><span id="hero-chg"></span><span class="when" id="hero-when"></span></div>
         </div>
+        <div class="cmp" role="group" aria-label="Chart legend: click a line to show or hide it" id="cmp"></div>
         <div class="chart" id="ch-eq"></div>
         <div class="bar">
           <div class="rng" role="group" aria-label="Time range" id="rng"></div>
@@ -327,7 +331,6 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
           <button class="tbtn" id="logscale" aria-pressed="false">Log</button>
           <button class="tbtn" id="replay">▶ Replay</button>
         </div>
-        <div class="cmp" role="group" aria-label="Compare with" id="cmp"></div>
         <div class="mini-h">Drops from the peak <button class="q" data-c="maxdd" aria-label="Explain drawdown">?</button></div>
         <div class="chart" id="ch-dd"></div>
         <div class="mini-h">What it was holding <button class="q" data-c="stuck" aria-label="Explain no-income days">?</button><span class="legend" id="legend-state"></span></div>
@@ -746,7 +749,7 @@ const WATCH = [
 
 // ======================= state & engine glue =======================
 const st = { mode: "real", cfg: clone(E.BOT_RULES), log: { real: false, model: true }, range: { real: "ALL", model: "ALL" },
-  cmp: { bot: true, nvda: true, spy: false, tbill: false }, blind: false, revealed: false, trace: "all", tab: "backtest" };
+  cmp: { bot: true, nvda: true, spy: true, tbill: true }, blind: false, revealed: false, trace: "all", tab: "backtest" };
 let seen = new Set();
 try { seen = new Set(JSON.parse(localStorage.getItem("wheellab.tries") || "[]")); } catch (e) { /* storage unavailable */ }
 const cache = new Map();
@@ -850,20 +853,33 @@ function renderRangeBar() {
 }
 function cmpSeries() {
   const { res, base, isBot } = view;
-  return [["bot", "Bot's rules", C.bot, base.run.eq, !isBot], ["nvda", "NVDA held", C.nvda, res.bench.nvda, true], ["spy", "SPY held", C.spy, res.bench.spy, true], ["tbill", "T-bills", C.tbill, res.bench.tbill, true]].filter((s) => s[4]);
+  return [["bot", "Bot's rules", C.bot, base.run.eq, !isBot, [6, 4]], ["nvda", "NVDA held", C.nvda, res.bench.nvda, true, null],
+    ["spy", "SPY held", C.spy, res.bench.spy, true, null], ["tbill", "T-bills", C.tbill, res.bench.tbill, true, [1, 4]]].filter((s) => s[4]);
 }
+function lineKey(color, dash, fill) {
+  const svg = svgEl("svg", { width: "22", height: "10", viewBox: "0 0 22 10", "aria-hidden": "true" });
+  if (fill) svg.append(svgEl("rect", { x: "1", y: "5", width: "20", height: "5", fill: color, opacity: "0.18" }));
+  const ln = svgEl("line", { x1: "2", y1: "5", x2: "20", y2: "5", stroke: color, "stroke-width": fill ? "2.6" : "2", "stroke-linecap": "round" });
+  if (dash) ln.setAttribute("stroke-dasharray", dash.join(" "));
+  svg.append(ln);
+  return svg;
+}
+// The chart legend. The strategy is always shown; comparison lines toggle.
 function renderCompare(idx) {
   const host = $("#cmp"), k = idx == null ? view.end : idx;
-  if (!host.childNodes.length || host._sig !== view.isBot + st.mode) {
-    host.innerHTML = ""; host._sig = view.isBot + st.mode;
-    for (const [key, label, color] of cmpSeries()) {
-      host.append(el("button", { "data-k": key, "aria-pressed": String(st.cmp[key]), onclick: () => { st.cmp[key] = !st.cmp[key]; render(); } },
-        el("span", { class: "key", style: `background:${color}` }), label, el("b", { class: "tnum" })));
+  const sig = [view.isBot, st.mode, C.accent, C.nvda, C.spy].join("|");
+  if (host._sig !== sig) {
+    host.innerHTML = ""; host._sig = sig;
+    host.append(el("span", { class: "lg", "data-k": "main" }, lineKey(C.accent, null, true), view.isBot ? "Bot's rules" : "Your rules", el("b", { class: "tnum" })));
+    for (const [key, label, color, , , dash] of cmpSeries()) {
+      host.append(el("button", { "data-k": key, "aria-pressed": String(st.cmp[key]), title: `Show or hide ${label}`, onclick: () => { st.cmp[key] = !st.cmp[key]; render(); } },
+        lineKey(color, dash, false), label, el("b", { class: "tnum" })));
     }
   }
-  for (const [key, , color, curve] of cmpSeries()) {
+  host.querySelector('[data-k="main"] b').textContent = money(view.res.run.eq[k]);
+  for (const [key, , , curve] of cmpSeries()) {
     const b = host.querySelector(`[data-k="${key}"]`); if (!b) continue;
-    b.setAttribute("aria-pressed", String(st.cmp[key])); b.querySelector(".key").style.background = color;
+    b.setAttribute("aria-pressed", String(st.cmp[key]));
     b.querySelector("b").textContent = money(curve[k]);
   }
 }
@@ -886,7 +902,10 @@ function renderCharts() {
   const xmin = xs[k0], xmax = xs[end], logScale = st.log[st.mode];
   const shown = cmpSeries().filter(([key]) => st.cmp[key]);
   const series = [{}], data = [xs], tags = [];
-  for (const [, label, color, curve] of shown.slice().reverse()) { series.push({ label, stroke: color, width: 1.5, points: { show: false } }); data.push(Array.from(curve.subarray(0, n))); tags.push({ color, label, main: false }); }
+  for (const [, label, color, curve, , dash] of shown.slice().reverse()) {
+    series.push({ label, stroke: color, width: dash && dash[0] === 1 ? 2 : 1.6, dash: dash || undefined, cap: dash && dash[0] === 1 ? "round" : "butt", points: { show: false } });
+    data.push(Array.from(curve.subarray(0, n))); tags.push({ color, label, main: false });
+  }
   const accent = C.accent, rgb = hexRgb(accent);
   series.push({ label: "Yours", stroke: accent, width: 2.25, points: { show: false },
     fill: (u) => { const g = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height); g.addColorStop(0, `rgba(${rgb},0.16)`); g.addColorStop(1, `rgba(${rgb},0)`); return g; } });
