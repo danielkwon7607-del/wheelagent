@@ -30,7 +30,7 @@
   --accent-ink: var(--up-ink);
   --go-bg: var(--up-ink);
   --go-fg: #ffffff;
-  --cmp-bot: #8a9099;
+  --cmp-bot: #2a78d6;
   --cmp-nvda: #1f6b2a;
   --cmp-spy: #111316;
   --cmp-tbill: #c98500;
@@ -52,7 +52,7 @@
     --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
     --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
     --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-    --cmp-bot: #8a9098; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
+    --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
     --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
     --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -64,7 +64,7 @@
   --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
   --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
   --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-  --cmp-bot: #8a9098; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
+  --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500;
   --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
   --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -853,7 +853,7 @@ function renderRangeBar() {
 }
 function cmpSeries() {
   const { res, base, isBot } = view;
-  return [["bot", "Bot's rules", C.bot, base.run.eq, !isBot, [6, 4]], ["nvda", "NVDA held", C.nvda, res.bench.nvda, true, null],
+  return [["bot", "Bot's rules", C.bot, base.run.eq, !isBot, null], ["nvda", "NVDA held", C.nvda, res.bench.nvda, true, null],
     ["spy", "SPY held", C.spy, res.bench.spy, true, null], ["tbill", "T-bills", C.tbill, res.bench.tbill, true, [1, 4]]].filter((s) => s[4]);
 }
 function lineKey(color, dash, fill) {
@@ -867,10 +867,10 @@ function lineKey(color, dash, fill) {
 // The chart legend. The strategy is always shown; comparison lines toggle.
 function renderCompare(idx) {
   const host = $("#cmp"), k = idx == null ? view.end : idx;
-  const sig = [view.isBot, st.mode, C.accent, C.nvda, C.spy].join("|");
+  const mainColor = view.isBot ? C.bot : C.accent, sig = [view.isBot, st.mode, mainColor, C.nvda, C.spy, C.bot].join("|");
   if (host._sig !== sig) {
     host.innerHTML = ""; host._sig = sig;
-    host.append(el("span", { class: "lg", "data-k": "main" }, lineKey(C.accent, null, true), view.isBot ? "Bot's rules" : "Your rules", el("b", { class: "tnum" })));
+    host.append(el("span", { class: "lg", "data-k": "main", style: `background:color-mix(in srgb, ${mainColor} 11%, transparent)` }, lineKey(mainColor, null, true), view.isBot ? "Bot's rules" : "Your rules", el("b", { class: "tnum" })));
     for (const [key, label, color, , , dash] of cmpSeries()) {
       host.append(el("button", { "data-k": key, "aria-pressed": String(st.cmp[key]), title: `Show or hide ${label}`, onclick: () => { st.cmp[key] = !st.cmp[key]; render(); } },
         lineKey(color, dash, false), label, el("b", { class: "tnum" })));
@@ -902,11 +902,11 @@ function renderCharts() {
   const xmin = xs[k0], xmax = xs[end], logScale = st.log[st.mode];
   const shown = cmpSeries().filter(([key]) => st.cmp[key]);
   const series = [{}], data = [xs], tags = [];
-  for (const [, label, color, curve, , dash] of shown.slice().reverse()) {
-    series.push({ label, stroke: color, width: dash && dash[0] === 1 ? 2 : 1.6, dash: dash || undefined, cap: dash && dash[0] === 1 ? "round" : "butt", points: { show: false } });
+  for (const [key, label, color, curve, , dash] of shown.slice().reverse()) {
+    series.push({ label, stroke: color, width: key === "bot" || (dash && dash[0] === 1) ? 2 : 1.6, dash: dash || undefined, cap: dash && dash[0] === 1 ? "round" : "butt", points: { show: false } });
     data.push(Array.from(curve.subarray(0, n))); tags.push({ color, label, main: false });
   }
-  const accent = C.accent, rgb = hexRgb(accent);
+  const accent = isBot ? C.bot : C.accent, rgb = hexRgb(accent);
   series.push({ label: "Yours", stroke: accent, width: 2.25, points: { show: false },
     fill: (u) => { const g = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height); g.addColorStop(0, `rgba(${rgb},0.16)`); g.addColorStop(1, `rgba(${rgb},0)`); return g; } });
   data.push(Array.from(run.eq.subarray(0, n))); tags.push({ color: accent, label: isBot ? "Bot" : "Yours", main: true });
@@ -1293,7 +1293,7 @@ function renderWatch() {
       el("div", {}, el("div", { class: "nm", text: w.n }), el("div", { class: "ds", text: w.d })));
     if (unavailable) { b.append(el("span"), el("span", { class: "small", style: "justify-self:end", text: "Real only" })); host.append(b); continue; }
     const r = evaluate(cfg, st.mode), end = st.blind && !st.revealed ? E.splitIndex(D, r.run) - 1 : r.run.len - 1, m = metricsOf(r, r.run.eq, 0, end);
-    const up = m.cagr >= 0, col = up ? C.up : C.down, svg = svgEl("svg", { viewBox: "0 0 64 26", "aria-hidden": "true" });
+    const up = m.cagr >= 0, col = w.n === "Bot's rules" ? C.bot : up ? C.up : C.down, svg = svgEl("svg", { viewBox: "0 0 64 26", "aria-hidden": "true" });
     const step = Math.max(1, Math.floor(end / 48)), pts = [];
     let lo = Infinity, hi = -Infinity;
     for (let k = 0; k <= end; k += step) { lo = Math.min(lo, r.run.eq[k]); hi = Math.max(hi, r.run.eq[k]); }
