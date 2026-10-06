@@ -20,7 +20,7 @@ from alpaca.data.timeframe import TimeFrame
 
 client = StockHistoricalDataClient(os.environ["ALPACA_API_KEY"], os.environ["ALPACA_SECRET_KEY"])
 for adj in ("split", "all"):  # split-adjusted for the wheel, total return for benchmarks
-    df = client.get_stock_bars(StockBarsRequest(symbol_or_symbols=["NVDA", "SPY", "COST"], timeframe=TimeFrame.Day,
+    df = client.get_stock_bars(StockBarsRequest(symbol_or_symbols=["NVDA", "SPY", "COST", "AMZN", "WMT", "JNJ", "XOM"], timeframe=TimeFrame.Day,
                                                 start=datetime(2015, 6, 1), end=datetime.now(), adjustment=adj,
                                                 feed=DataFeed.SIP)).df
     df.to_pickle(os.path.join(DATA, f"stock_{adj}.pkl"))

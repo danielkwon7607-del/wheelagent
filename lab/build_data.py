@@ -40,7 +40,9 @@ earnings = [d.isoformat() for d in w.earnings_days(START, date(2027, 1, 31))]
 
 # --- real option chains and bars, per underlying ---
 DATA = os.path.join(HERE, "..", "research", "data")
-CACHES = {"NVDA": "opt_cache.pkl", "SPY": "opt_cache_SPY.pkl", "COST": "opt_cache_COST.pkl"}
+CACHES = {"NVDA": "opt_cache.pkl", "SPY": "opt_cache_SPY.pkl", "COST": "opt_cache_COST.pkl", "AMZN": "opt_cache_AMZN.pkl",
+          "WMT": "opt_cache_WMT.pkl", "JNJ": "opt_cache_JNJ.pkl", "XOM": "opt_cache_XOM.pkl"}
+CACHES = {k: v for k, v in CACHES.items() if os.path.exists(os.path.join(DATA, v))}
 
 
 def pack_options(cache):
@@ -67,8 +69,8 @@ def pack_options(cache):
     return chains, bars
 
 
-def closes(sym):
-    s = w._stock_split.loc[sym]["close"].copy()
+def closes(sym, frame=None):
+    s = (w._stock_split if frame is None else frame).loc[sym]["close"].copy()
     s.index = pd.to_datetime(s.index).tz_convert("America/New_York").date
     return s
 
@@ -134,21 +136,25 @@ for sym, fname in CACHES.items():
     cache = pickle.load(open(os.path.join(DATA, fname), "rb"))
     chains, bars = pack_options(cache)
     px = closes(sym)
+    efile = os.path.join(DATA, f"earnings_8k_{sym}.pkl")
     if sym == "NVDA":
         earn_iso = earnings
-    elif sym == "COST":
-        earn_iso = reaction_days(pd.read_pickle(os.path.join(DATA, "earnings_8k_COST.pkl")))
+    elif os.path.exists(efile):
+        earn_iso = reaction_days(pd.read_pickle(efile))
     else:
-        earn_iso = []
+        earn_iso = []  # SPY: an index fund has no earnings
     earn_d = [date.fromisoformat(e) for e in earn_iso]
     cal = calibrate(sym, cache, px, earn_d)
     # NVDA keeps the research model's calibration so it matches the Python engine
     model = ({"putMult": 1.13, "callMult": 1.0, "earnPut": 1.4, "earnCall": 1.1} if sym == "NVDA"
              else {k: cal[k] for k in ("putMult", "callMult", "putCurve", "callCurve", "earnPut", "earnCall")})
     real_px = px[px.index >= REAL_START]
-    need = float(real_px.max()) * 100  # one contract at the highest price in the window
-    capital = 25000 if need <= 25000 else int(math.ceil(need / 10000) * 10000)
-    tickers[sym] = {"close": col(px), "chains": chains, "bars": bars, "earnings": earn_iso, "model": model, "capital": capital}
+    # Stocks a $25k account can trade today (a put 5% below the latest price fits)
+    # run on $25k exactly like the bot, which caps strikes when the price was
+    # higher. Others run on the smallest account that fits one contract at the peak.
+    fits_today = float(real_px.iloc[-1]) * 100 * 0.95 <= 25000
+    capital = 25000 if fits_today else int(math.ceil(float(real_px.max()) * 100 / 10000) * 10000)
+    tickers[sym] = {"close": col(px), "tr": col(closes(sym, w._stock_all)), "chains": chains, "bars": bars, "earnings": earn_iso, "model": model, "capital": capital}
     print(f"{sym}: {len(chains)} expiries, {len(bars)} contracts, capital ${capital:,}, model {model}, measured {cal}")
 
 # --- reference results from the Python research engines (parity targets) ---
@@ -175,7 +181,8 @@ data = {
     "spyTR": col(w.SPY_TR),
     "costTR": col(w.COST_TR),
     "tbill": tbill,
-    "tickers": tickers,
+    "tickers": {"NVDA": tickers["NVDA"]},
+    "tickerList": [{"sym": k, "capital": v["capital"]} for k, v in tickers.items()],
     "reference": reference,
 }
 out = os.path.join(HERE, "data.js")
@@ -183,5 +190,14 @@ with open(out, "w") as f:
     f.write("window.LAB_DATA = ")
     json.dump(data, f, separators=(",", ":"))
     f.write(";\n")
-print(f"wrote {out}: {os.path.getsize(out) / 1e6:.1f} MB, {len(dates)} days, tickers {list(tickers)}")
+print(f"wrote {out}: {os.path.getsize(out) / 1e6:.1f} MB, {len(dates)} days")
+for sym, T in tickers.items():
+    if sym == "NVDA":
+        continue
+    tout = os.path.join(HERE, f"data_{sym}.js")
+    with open(tout, "w") as f:
+        f.write(f"(window.LAB_TICKERS = window.LAB_TICKERS || {{}})[{json.dumps(sym)}] = ")
+        json.dump(T, f, separators=(",", ":"))
+        f.write(";\n")
+    print(f"wrote {tout}: {os.path.getsize(tout) / 1e6:.1f} MB")
 print(json.dumps(reference, indent=1))

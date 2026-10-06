@@ -91,22 +91,25 @@
       return out;
     };
     const tickers = {};
-    for (const [tk, T] of Object.entries(L.tickers)) {
-      const S = Float64Array.from(T.close), lr = new Float64Array(n); lr[0] = NaN;
-      for (let i = 1; i < n; i++) lr[i] = Math.log(S[i] / S[i - 1]);
-      const s20 = rollStd(lr, 20), s60 = rollStd(lr, 60), rv = new Float64Array(n);
-      for (let i = 0; i < n; i++) rv[i] = 0.5 * s20[i] * SQ252 + 0.5 * s60[i] * SQ252;
-      const chains = new Map();
-      for (const [iso, ch] of Object.entries(T.chains || {})) {
-        chains.set(epochDay(iso), { P: ch.P.slice().sort((a, b) => a[0] - b[0]), C: ch.C.slice().sort((a, b) => a[0] - b[0]) });
-      }
-      tickers[tk] = { ticker: tk, S, rv, chains, bars: T.bars, earnings: T.earnings.map(epochDay), barCache: new Map(), model: T.model, capital: T.capital };
-    }
     const D = {
-      L, n, day, dayIndex, tickers, dates: L.dates,
+      L, n, day, dayIndex, tickers, dates: L.dates, rollStd,
       nvdaTR: Float64Array.from(L.nvdaTR), spyTR: Float64Array.from(L.spyTR), costTR: Float64Array.from(L.costTR || L.spyTR), tbill: Float64Array.from(L.tbill),
     };
+    for (const [tk, T] of Object.entries(L.tickers)) E.addTicker(D, tk, T);
     return Object.assign(D, tickers.NVDA);
+  };
+  // Add one underlying's prices (loaded with data.js, or later from data_<TK>.js).
+  E.addTicker = function (D, tk, T) {
+    const n = D.n, S = Float64Array.from(T.close), lr = new Float64Array(n); lr[0] = NaN;
+    for (let i = 1; i < n; i++) lr[i] = Math.log(S[i] / S[i - 1]);
+    const s20 = D.rollStd(lr, 20), s60 = D.rollStd(lr, 60), rv = new Float64Array(n);
+    for (let i = 0; i < n; i++) rv[i] = 0.5 * s20[i] * SQ252 + 0.5 * s60[i] * SQ252;
+    const chains = new Map();
+    for (const [iso, ch] of Object.entries(T.chains || {})) {
+      chains.set(epochDay(iso), { P: ch.P.slice().sort((a, b) => a[0] - b[0]), C: ch.C.slice().sort((a, b) => a[0] - b[0]) });
+    }
+    D.tickers[tk] = { ticker: tk, S, tr: Float64Array.from(T.tr || T.close), rv, chains, bars: T.bars, earnings: T.earnings.map(epochDay), barCache: new Map(), model: T.model, capital: T.capital };
+    return D.tickers[tk];
   };
   // The dataset seen by one simulation: shared calendar + that ticker's prices.
   const viewOf = (D, tk) => Object.assign(Object.create(D), D.tickers[tk]);
@@ -364,18 +367,20 @@
   };
 
   // ---------- benchmarks & metrics ----------
-  E.benchmarks = function (D, i0, i1) {
-    const len = i1 - i0 + 1, nv = new Float64Array(len), sp = new Float64Array(len), co = new Float64Array(len), tbc = new Float64Array(len);
+  E.benchmarks = function (D, i0, i1, ticker = "NVDA") {
+    const len = i1 - i0 + 1, nv = new Float64Array(len), sp = new Float64Array(len), co = new Float64Array(len), st = new Float64Array(len), tbc = new Float64Array(len);
+    const tr = (D.tickers[ticker] || D.tickers.NVDA).tr;
     let v = CAP;
     for (let k = 0; k < len; k++) {
       const i = i0 + k;
       nv[k] = CAP * D.nvdaTR[i] / D.nvdaTR[i0];
       sp[k] = CAP * D.spyTR[i] / D.spyTR[i0];
       co[k] = CAP * D.costTR[i] / D.costTR[i0];
+      st[k] = CAP * tr[i] / tr[i0];
       if (k > 0) v *= 1 + D.tbill[i - 1] * (D.day[i] - D.day[i - 1]) / 360;
       tbc[k] = v;
     }
-    return { nvda: nv, spy: sp, cost: co, tbill: tbc };
+    return { nvda: nv, spy: sp, cost: co, stock: st, tbill: tbc };
   };
 
   function mean(a) { let s = 0; for (const x of a) s += x; return s / a.length; }

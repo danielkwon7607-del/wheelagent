@@ -9,6 +9,7 @@ Run: research/.venv/bin/python research/prefetch_ticker.py SPY COST
 """
 import os
 import pickle
+import re
 import sys
 from datetime import date, datetime, timedelta
 
@@ -30,7 +31,7 @@ from alpaca.trading.requests import GetOptionContractsRequest  # noqa: E402
 KEY, SECRET = os.environ["ALPACA_API_KEY"], os.environ["ALPACA_SECRET_KEY"]
 trading, optdata = TradingClient(KEY, SECRET, paper=True), OptionHistoricalDataClient(KEY, SECRET)
 stock = pd.read_pickle(os.path.join(DATA, "stock_split.pkl"))
-CIK = {"COST": "0000909832"}
+CIK = {"COST": "0000909832", "AMZN": "0001018724", "WMT": "0000104169", "JNJ": "0000200406", "XOM": "0000034088"}
 
 
 def closes(sym):
@@ -68,7 +69,8 @@ def fetch(ticker):
             keep = (lambda k: k % 5 == 0) if ticker == "SPY" else (lambda k: True)
             syms = [s for k, s in cache["contracts"][(E, "P")].items() if 0.78 * lo <= k <= hi and keep(k)]
             syms += [s for k, s in cache["contracts"][(E, "C")].items() if 0.95 * lo <= k <= 1.3 * hi and keep(k)]
-            syms = [s for s in syms if s not in cache["bars"]]
+            # skip already-fetched and corporate-action "adjusted" symbols (e.g. 1XOM...), which the bars API rejects
+            syms = [s for s in syms if s not in cache["bars"] and re.fullmatch(r"[A-Z]{1,5}\d{6,7}[CP]\d{8}", s)]
             exp = datetime.combine(E, datetime.min.time())
             for i in range(0, len(syms), 100):
                 batch = syms[i:i + 100]
@@ -82,7 +84,7 @@ def fetch(ticker):
                     cache["bars"][sym] = got.get(sym, pd.Series(dtype=float))
                 fetched += len(batch)
         fri += timedelta(days=7)
-    pickle.dump(cache, open(path, "wb"))
+        pickle.dump(cache, open(path, "wb"))  # save as we go so a failure doesn't lose progress
     with_bars = sum(1 for s in cache["bars"].values() if len(s))
     print(f"{ticker}: {len(cache['contracts']) // 2} expiries, {fetched} contracts fetched, {with_bars} with bars")
 
