@@ -14,9 +14,7 @@ adding something means editing or replacing something — not appending.
 - Capital: $25k set aside for the challenge. Enforced in code as
   strategy.CAPITAL_CAP (put collateral + share cost basis), whatever the
   paper account balance says.
-- Goal: beat the market, >=8% annual (README). Track record: 3 trades
-  Apr-Jun 2026 (+1.21%), then the bot traded again from 2026-08-12 (about
-  8 put cycles by Oct 1, per Alpaca order history). No reconciled P&L yet;
+- Goal: beat the market, >=8% annual (README). No reconciled P&L yet;
   rebuild it from account activities (Phase 5), don't trust old figures.
 - Current rules (not yet revisited): put strike 10% below spot (~0.07
   delta in Oct 2026, premiums ~$0.50-1.25), call strike 10% above cost
@@ -24,13 +22,14 @@ adding something means editing or replacing something — not appending.
   profit and roll immediately. Cash-secured only, 1 contract.
 - Build plan: docs/kiln-build-prompt.md, phases 0-6, stop for Daniel's
   review after each. Phase 0 (4 bug fixes) done on branch phase0-bug-fixes.
-- Research 2026-10-03 (research/, run note juno-37): the basic wheel kept
-  ~63% of NVDA's CAGR but ~90% of its max drawdown (2016-26 model, -59%);
-  premium was only ~18% of 2024-26 profit (most came from holding assigned
-  shares). Both real and model data favor 30-45 DTE and closer strikes;
-  skipping earnings didn't help; a 200-day filter on new puts never fires
-  (already assigned by then). Basis-anchored vs spot-based calls is a
-  regime tradeoff (keeps rallies vs avoids being stuck). Not yet decided.
+- Research 2026-10-03: the basic wheel kept ~63% of NVDA's CAGR but ~90%
+  of its max drawdown; premium was ~18% of 2024-26 profit. A 200-day filter
+  on new puts never fires (already assigned). Basis vs spot calls is a
+  regime tradeoff.
+- Search 2026-10-05: NVDA best = 0.30 delta, 21d, TP 75%, calls 5% above
+  price, pricey filter 1.1: real 20.7%/yr Sharpe 1.96 dd -3.9% vs bot 21.5%/
+  1.09/-13.2%. No pick on any ticker beats the luck allowance after ~30k
+  tries, so the plan is a forward test, not a switch. Daniel likes AMZN.
 - Daniel approves rules, not trades: once a rule set is picked the bot
   runs fully automatically. Never add per-trade confirmation steps.
 
@@ -52,9 +51,12 @@ adding something means editing or replacing something — not appending.
   lab/dist/wheel-lab.html with data.js + engine.js as files). engine.js must
   match research/ on the original rules: run node lab/parity_test.js after
   any engine change. Tries start at 40 (the research grid + model runs).
-  Per-ticker data (NVDA/SPY/COST, research/prefetch_ticker.py): SPY/COST
-  run on the smallest account fitting one contract ($80k/$110k), shown per
-  $25k; their model IV follows measured skew curves, NVDA stays flat 1.13.
+  Tickers NVDA/AMZN/WMT/JNJ/XOM/SPY/COST (research/prefetch_ticker.py; non-
+  NVDA load lazily from data_<TK>.js). Fits $25k today -> $25k account (strike
+  capped like the bot); SPY/COST run $80k/$110k, shown per $25k. Model IV
+  uses measured skew curves; NVDA stays flat 1.13 for parity. lab/search.js
+  (30,240 combos/ticker, ~2 min each) writes best.js: plateau pick, 30+
+  trades, 8%/yr floor, design-only pick + luck check. Red line = that pick.
 - logging_setup.py: log/summary timestamps in Pacific (Daniel is on the
   west coast). Display only — market hours stay in New York time; never
   move is_market_hours to Pacific (it would trade 12:30-7pm ET).
