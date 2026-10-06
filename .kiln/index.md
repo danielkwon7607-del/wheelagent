@@ -53,8 +53,7 @@ adding something means editing or replacing something — not appending.
   match research/ on the original rules: run node lab/parity_test.js after
   any engine change. Tries start at 40 (the research grid + model runs).
   Wheel tickers NVDA/AMZN/WMT/JNJ/XOM (all fit $25k; non-NVDA load lazily
-  from data_<TK>.js; strikes capped like the bot). SPY/COST were dropped as
-  too costly per contract and stay as benchmark lines only. Model IV
+  from data_<TK>.js; strikes capped like the bot). Model IV
   uses measured skew curves; NVDA stays flat 1.13 for parity. lab/search.js
   (30,240 combos/ticker, ~2 min each) writes best.js: plateau pick, 30+
   trades, 8%/yr floor, design-only pick + luck check. Red line = that pick.
@@ -80,10 +79,10 @@ adding something means editing or replacing something — not appending.
   branch; merge outside market hours and only after Daniel's review.
 - Wheel Lab look is Daniel's pick (2026-10-05): Robinhood/TradingView stock
   page, neutral ink/paper, green/pink only for up/down, calm, no blue
-  chrome. Lines (his pick): NVDA forest green, SPY black (white in dark),
-  T-bills dotted gold, bot's rules blue everywhere, COST brown dash-dot.
-  Gold vs green fails CVD in dark mode: keep dashes + legend + price tags.
-  Alpha vs COST is inflated (beta ~0.1): judge edge vs the stock wheeled.
+  chrome. Solid = strategy, dashed = just hold a stock, dotted = T-bills.
+  Bot's rules blue, best combo red, NVDA held forest green (his picks);
+  SPY/COST removed entirely at his ask. Pills toggle lines; the P&L picker
+  sets the hero line; the Compare table shows % vs that line.
   He rejected a terminal look and a bubbly glass look before this.
 - The bot only cancels its own (wheelbot-) orders. Any other open NVDA
   order blocks it until gone — never auto-cancel manual orders.

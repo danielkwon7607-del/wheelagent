@@ -31,12 +31,13 @@
   --go-bg: var(--up-ink);
   --go-fg: #ffffff;
   --cmp-bot: #2a78d6;
-  --cmp-nvda: #1f6b2a;
-  --cmp-spy: #111316;
-  --cmp-tbill: #c98500;
-  --cmp-cost: #a0522d;
   --cmp-best: #dc2626;
-  --cmp-stock: #7b61ff;
+  --cmp-tbill: #c98500;
+  --held-NVDA: #1f6b2a;
+  --held-AMZN: #7b61ff;
+  --held-WMT: #111316;
+  --held-JNJ: #a0522d;
+  --held-XOM: #1d8fa8;
   --st-put: #1d8fa8;
   --st-call: #7b61ff;
   --st-stuck: #e5484d;
@@ -55,7 +56,8 @@
     --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
     --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
     --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-    --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500; --cmp-cost: #9c5a3c;
+    --cmp-bot: #3987e5; --cmp-tbill: #c98500;
+    --held-NVDA: #28713c; --held-AMZN: #9085e9; --held-WMT: #f3f4f6; --held-JNJ: #9c5a3c; --held-XOM: #2694ad;
     --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
     --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -67,7 +69,8 @@
   --bg: #0b0c0e; --panel: #111215; --sunken: #17191c; --sunken-2: #1f2226; --line: #202328; --line-2: #2d3137;
   --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
   --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
-  --cmp-bot: #3987e5; --cmp-nvda: #28713c; --cmp-spy: #f3f4f6; --cmp-tbill: #c98500; --cmp-cost: #9c5a3c;
+  --cmp-bot: #3987e5; --cmp-tbill: #c98500;
+  --held-NVDA: #28713c; --held-AMZN: #9085e9; --held-WMT: #f3f4f6; --held-JNJ: #9c5a3c; --held-XOM: #2694ad;
   --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
   --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -134,15 +137,24 @@ section.sec:first-child { border-top: 0; padding-top: 0; }
 .tbtn { border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
 .tbtn:hover { border-color: var(--ink-2); }
 .tbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.cmp { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 14px 0; }
-.cmp .lg { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px; border-radius: 999px; font-size: 13px; font-weight: 600; background: color-mix(in srgb, var(--accent) 11%, transparent); }
-.cmp svg { display: block; flex: none; }
-.cmp button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 11px 5px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-2); }
-.cmp button[aria-pressed="true"] { border-color: var(--line-2); color: var(--ink); background: var(--sunken); }
-.cmp button[aria-pressed="false"] svg { opacity: 0.25; }
-.cmp button[aria-pressed="false"] b { color: var(--muted); font-weight: 500; }
-.cmp .key { width: 14px; height: 3px; border-radius: 2px; }
-.cmp b { font-weight: 600; }
+.cmp-wrap { display: grid; gap: 8px; padding-block: 14px 2px; }
+.cmp-label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.cmp { display: flex; flex-wrap: wrap; gap: 8px; }
+.cmp button { --c: var(--ink-2); border: 1.5px solid var(--line); background: transparent; border-radius: 999px; padding: 5px 12px 5px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.cmp button svg { display: block; flex: none; opacity: 0.35; }
+.cmp button b { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cmp button:hover { border-color: color-mix(in srgb, var(--c) 60%, var(--line)); }
+.cmp button[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 14%, transparent); border-color: var(--c); color: var(--ink); font-weight: 600; }
+.cmp button[aria-pressed="true"] svg { opacity: 1; }
+.cmp button[aria-pressed="true"] b { color: var(--ink); font-weight: 600; }
+.cmp button .on { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--line-2); flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; color: #fff; }
+.cmp button[aria-pressed="true"] .on { background: var(--c); border-color: var(--c); }
+.focus-pick { appearance: none; -webkit-appearance: none; border: 0; background: var(--sunken) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23868c95' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center; border-radius: 8px; padding: 4px 28px 4px 10px; font: 600 14px var(--f-ui); color: var(--ink); cursor: pointer; }
+.score tr.focus td { font-weight: 700; color: var(--ink); }
+.score tr { cursor: pointer; }
+.score tr:hover td { background: var(--sunken); }
+.score td .key { display: inline-flex; align-items: center; gap: 8px; }
+.score td.pos { color: var(--up-ink); } .score td.neg { color: var(--down-ink); }
 .mini-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 18px 0 4px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-weight: 500; color: var(--muted); }
 .legend .it { display: inline-flex; align-items: center; gap: 5px; }
@@ -337,11 +349,12 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
       <section class="sec hero">
         <canvas id="dots" aria-hidden="true"></canvas>
         <div class="hero-txt" aria-live="polite">
-          <div class="who"><span id="who">The bot's rules</span><span class="muted" id="who-mode">· Real prices</span></div>
+          <div class="who"><select class="focus-pick" id="focus" aria-label="Show P&amp;L for"></select><span class="muted" id="who-mode">· Real prices</span></div>
           <div class="val" id="hero-val">$0</div>
           <div class="chg"><span id="hero-chg"></span><span class="when" id="hero-when"></span></div>
         </div>
-        <div class="cmp" role="group" aria-label="Chart legend: click a line to show or hide it" id="cmp"></div>
+        <div class="cmp-wrap"><div class="cmp-label">Tap to show or hide · solid = strategy, dashed = just hold the stock, dotted = T-bills</div>
+          <div class="cmp" role="group" aria-label="Lines on the chart: tap to show or hide" id="cmp"></div></div>
         <div class="chart" id="ch-eq"></div>
         <div class="bar">
           <div class="rng" role="group" aria-label="Time range" id="rng"></div>
@@ -349,7 +362,9 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
           <button class="tbtn" id="logscale" aria-pressed="false">Log</button>
           <button class="tbtn" id="replay">▶ Replay</button>
         </div>
-        <div class="mini-h">Drops from the peak <button class="q" data-c="maxdd" aria-label="Explain drawdown">?</button></div>
+        <div class="mini-h" style="margin-top:22px">Compare <span class="small" id="score-note" style="font-weight:500"></span><button class="q" data-c="compare" aria-label="Explain the comparison table">?</button></div>
+        <div class="tbl-wrap"><table class="score" id="score"></table></div>
+        <div class="mini-h">Drops from the peak <span class="small" id="dd-note" style="font-weight:500"></span><button class="q" data-c="maxdd" aria-label="Explain drawdown">?</button></div>
         <div class="chart" id="ch-dd"></div>
         <div class="mini-h">What it was holding <button class="q" data-c="stuck" aria-label="Explain no-income days">?</button><span class="legend" id="legend-state"></span></div>
         <div class="chart" id="ch-state"></div>
@@ -504,7 +519,8 @@ function readColors() {
   const cs = getComputedStyle(root), g = (v) => cs.getPropertyValue(v).trim();
   return {
     accent: g("--accent"), up: g("--up"), down: g("--down"), upInk: g("--up-ink"), downInk: g("--down-ink"),
-    bot: g("--cmp-bot"), nvda: g("--cmp-nvda"), spy: g("--cmp-spy"), tbill: g("--cmp-tbill"), cost: g("--cmp-cost"), best: g("--cmp-best"), stock: g("--cmp-stock"),
+    bot: g("--cmp-bot"), tbill: g("--cmp-tbill"), best: g("--cmp-best"),
+    held: Object.fromEntries(["NVDA", "AMZN", "WMT", "JNJ", "XOM"].map((t) => [t, g("--held-" + t)])),
     put: g("--st-put"), call: g("--st-call"), stuck: g("--st-stuck"), cash: g("--st-cash"),
     ink: g("--ink"), ink2: g("--ink-2"), muted: g("--muted"), line: g("--line"), line2: g("--line-2"), bg: g("--bg"), panel: g("--panel"),
     good: g("--good"), warn: g("--warn"), serious: g("--serious"), critical: g("--critical"),
@@ -633,11 +649,11 @@ const CONCEPTS = {
     w: "The model prices options as a multiple of realized volatility, calibrated on real trades.", x: "", r: ["iv", "vrp"] },
   vrp: { g: "The wheel", t: "Volatility risk premium", s: "Options tend to be priced for more movement than happens.",
     p: ["The gap between implied and realized volatility is the seller's edge. Buyers pay for protection the way people pay for insurance."],
-    w: "For the bot's NVDA puts in 2024 to 2026, IV was above the movement that followed in 72% of trades. The model's NVDA put pricing (1.13×) is that measured ratio; SPY and COST use ratios measured at several strike distances (SPY's far-out puts run over 2×). Lower the setting toward 1.00× to see the wheel with less edge.",
+    w: "For the bot's NVDA puts in 2024 to 2026, IV was above the movement that followed in 72% of trades. The model's NVDA put pricing (1.13×) is that measured ratio; the other stocks use ratios measured at several strike distances from their own option prices. Lower the setting toward 1.00× to see the wheel with less edge.",
     x: "Research finds this edge is much smaller for single stocks than for indexes, and it flips in crashes.", r: ["iv", "volfilter"] },
   tp: { g: "The wheel", t: "Take profit", s: "Buy the option back early once you've captured part of the premium.",
     p: ["Once the option has lost a set share of its value (the bot uses 50%), buy it back and sell a new one. It frees capital and shortens the time you're exposed."],
-    w: "Evidence is mixed. It helped in the model and hurt in some real-price tests. A published SPY wheel backtest found it hurt.",
+    w: "Evidence is mixed. It helped in the model and hurt in some real-price tests. A published wheel backtest on the S&P 500 found it hurt.",
     x: "Each extra round trip pays the spread again.", r: ["roll", "spread"] },
   loss: { g: "The wheel", t: "Cut losses", s: "Buy back an option that has moved against you.",
     p: ["When the option's price reaches 2× or 3× what you sold it for, buy it back. The lab then opens a new one by the current rules, which is a roll."],
@@ -680,8 +696,8 @@ const CONCEPTS = {
     w: "In 2024 to 2026 the bot's rules won 94% of trades. The average win was $59 and the worst trade lost $1,586.", x: "", r: ["worstmonth", "attribution"] },
   tickers: { g: "The wheel", t: "Which stock to wheel", s: "Same rules, very different results on each stock.",
     p: ["The toggle runs the same rules on a different stock, using that stock's own real option prices and measured pricing. It answers whether the wheel itself is any good, or whether it only worked because NVDA went up 10×.",
-        "A fixed \"10% below\" strike means very different risk on each stock. NVDA swings about 45% a year, so 10% below is a 0.07 to 0.10 delta. SPY swings about 15%, so 10% below is around 0.02 delta: almost no premium and almost never assigned. Choosing strikes by delta keeps the risk comparable across stocks."],
-    w: "Every stock here fits a $25k account at today's price. When a stock traded higher in the past, the lab caps the strike at what $25k covers, exactly like the bot does. SPY and COST were tested and dropped: one contract needs $78k to $105k.",
+        "A fixed \"10% below\" strike means very different risk on each stock. NVDA swings about 45% a year, so 10% below is a 0.07 to 0.10 delta. A calm stock like JNJ swings far less, so 10% below is a tiny delta: almost no premium and almost never assigned. Choosing strikes by delta keeps the risk comparable across stocks."],
+    w: "Every stock here fits a $25k account at today's price. When a stock traded higher in the past, the lab caps the strike at what $25k covers, exactly like the bot does.",
     x: "Dividends paid on shares you hold after assignment aren't counted, which slightly understates the steady dividend payers like JNJ, XOM and WMT.", r: ["delta", "vrp", "benchmark"] },
   best: { g: "Testing honestly", t: "How the best combination was picked", s: "Every combination, scored for Sharpe and return, chosen from a plateau.",
     p: ["For each stock, the search runs about 30,000 rule combinations: 10 strike choices, 6 expiries, 4 take-profit levels, 3 loss rules, 7 covered-call rules, earnings on or off, and the pricey-options filter on or off (real prices only).",
@@ -704,12 +720,16 @@ const CONCEPTS = {
   alpha: { g: "Reading results", t: "Alpha", s: "The yearly return left over after accounting for beta.",
     p: ["Take the strategy's return, remove the part its beta to a benchmark explains, and what's left is alpha. Positive alpha means the strategy added something beyond its market exposure.",
         "The t number says whether alpha stands out from day-to-day noise. Roughly, above 2 means it's unlikely to be pure chance in a single test."],
-    w: "Alpha vs NVDA is the one to watch: it asks whether the wheel beat simply holding a smaller amount of NVDA. Alpha vs SPY mostly picks up NVDA's own huge run, so it flatters the wheel. Alpha vs COST flatters it even more: the wheel barely moves with COST (beta near 0.1 on real prices), so COST explains almost none of its return and the NVDA exposure shows up as \"alpha\". Low beta plus big alpha usually means the wrong benchmark, not skill.",
+    w: "Alpha vs the stock you're wheeling is the one to watch: it asks whether the wheel beat simply holding a smaller amount of that stock. Low beta plus big alpha against some other benchmark usually means the wrong benchmark, not skill.",
     x: "The t number ignores how many settings you've tried. After many tries, trust the luck check instead. Option returns are lopsided, so treat t as a rough guide.", r: ["beta", "tries", "sharpe"] },
   benchmark: { g: "Reading results", t: "Benchmarks", s: "What simple alternatives would have done.",
-    p: ["The same $25k in NVDA, held. The same $25k in SPY, held. The same $25k in COST, held. Or left in T-bills. A strategy is only worth running if it beats these after accounting for risk."],
-    w: "COST (Costco) is the steady one: a strong stock that moves far less than NVDA and wasn't part of the AI trade. It asks whether a boring stock gave a similar smooth ride.",
-    x: "A benchmark never changes your own numbers, only the comparison. Choosing a benchmark because it makes your results look good is called benchmark-shopping, and it's a form of fooling yourself.", r: ["tbills", "sharpe", "beta"] },
+    p: ["The same $25k simply held in each stock (NVDA, AMZN, WMT, JNJ, XOM), or left in T-bills. A strategy is only worth running if it beats these after accounting for risk.",
+        "Turn any of them on with the pills above the chart. The comparison table lists every line that's on, with its % difference from the one you picked."],
+    w: "A benchmark never changes your own numbers, only the comparison. Choosing one because it makes your results look good is benchmark-shopping.", x: "", r: ["tbills", "sharpe", "beta"] },
+  compare: { g: "Reading results", t: "The comparison table", s: "Every line that's on, side by side.",
+    p: ["For each line on the chart: its value at the end of the range, the profit or loss from the $25k start, the total return, the yearly rate, and the worst drop along the way.",
+        "The last column is the % difference between each line's ending value and the line you picked at the top (the one whose P&L shows in the big number). Tap a row to make it the one you're viewing."],
+    w: "Change the time range (1M to ALL) and every number follows.", x: "", r: ["benchmark", "maxdd"] },
   tbills: { g: "Reading results", t: "T-bills", s: "The return for taking no risk.",
     p: ["Short-term US government debt, about 4% a year in 2026. Idle cash in the lab earns the T-bill rate, and Sharpe is measured above it."], w: "", x: "", r: ["benchmark"] },
   attribution: { g: "Reading results", t: "Where the money came from", s: "Premium, stock moves, or interest.",
@@ -750,7 +770,7 @@ const CONCEPTS = {
 const PAPERS = [
   { t: "You keep most of the crashes and only part of the rallies", src: [["Cboe PutWrite study (Bondarenko)", "https://cdn.cboe.com/resources/education/research_publications/PutWriteCBOE19_v14_by_Prof_Oleg_Bondarenko_as_of_June_14.pdf"], ["Wilshire", "https://cdn.cboe.com/resources/spx/wilshire-options-based-benchmark-indexes-2019.pdf"]],
     f: "Cboe's S&P 500 put-selling index roughly matched the market from 1986 to 2018 (9.5% vs 9.8% a year) with less bumpiness, but it trailed badly in bull markets (7.1% vs 12.6% a year in 2010 to 2018) and still took big drops. That's a diversified index. One stock has no cushion at all.",
-    fix: "Always judge the wheel against simply holding NVDA and SPY. That's built into every chart here.", over: {}, mode: "model" },
+    fix: "Always judge the wheel against simply holding the stock. That's built into every chart here.", over: {}, mode: "model" },
   { t: "The cost-basis rule is loss aversion in disguise", src: [["Early Retirement Now", "https://earlyretirementnow.com/2024/09/17/the-wheel-strategy-doesnt-work-options-series-part-12/"], ["Schwab", "https://www.schwab.com/learn/story/three-things-to-know-about-wheel-strategy"]],
     f: "Refusing to sell calls below what you paid feels safe but leaves you more exposed as the stock falls, and the wheel then reports premium as \"profit\" while the shares are underwater. Schwab warns about being stuck with shares that keep falling.",
     fix: "Test the hybrid or delta call rules, and judge by account value, never by premium collected.", over: { call: { method: "hybrid", delta: 0.20, under: 0.20 } } },
@@ -763,8 +783,8 @@ const PAPERS = [
   { t: "Weekly options did worse than monthly", src: [["Cboe PutWrite study (Bondarenko)", "https://cdn.cboe.com/resources/education/research_publications/PutWriteCBOE19_v14_by_Prof_Oleg_Bondarenko_as_of_June_14.pdf"]],
     f: "Cboe's weekly put-selling index returned 4.5% a year (Sharpe 0.40) against 6.0% (Sharpe 0.50) for the monthly one over 2006 to 2018. Our NVDA tests agree: 30 to 45 days beat 14.",
     fix: "Move toward 30 to 45 days to expiry.", over: { dte: 45 } },
-  { t: "Taking profit at 50% isn't proven", src: [["Spintwig SPY wheel backtest", "https://spintwig.com/spy-wheel-45-dte-options-backtest"]],
-    f: "There's no peer-reviewed support for the 50% rule. A retail SPY wheel backtest (2007 to 2024) found early exits earned less (4.5% vs 7.4% a year), and none of its ten wheel versions beat buy-and-hold.",
+  { t: "Taking profit at 50% isn't proven", src: [["Spintwig wheel backtest", "https://spintwig.com/spy-wheel-45-dte-options-backtest"]],
+    f: "There's no peer-reviewed support for the 50% rule. A retail wheel backtest on the S&P 500 (2007 to 2024) found early exits earned less (4.5% vs 7.4% a year), and none of its ten wheel versions beat buy-and-hold.",
     fix: "Test holding to expiry against taking profit, in both price sources.", over: { tp: null } },
   { t: "A high win rate hides rare, big losses", src: [["Cboe PutWrite study (Bondarenko)", "https://cdn.cboe.com/resources/education/research_publications/PutWriteCBOE19_v14_by_Prof_Oleg_Bondarenko_as_of_June_14.pdf"]],
     f: "Put-selling returns are lopsided: lots of small gains and occasional large losses (Cboe's index shows strong negative skew and fat tails). Win rate says almost nothing about risk.",
@@ -806,7 +826,7 @@ const WATCH = [
 // ======================= state & engine glue =======================
 const botRules = (tk) => { const c = clone(E.BOT_RULES), M = D.tickers[tk].model; return Object.assign(c, { putMult: M.putMult, callMult: M.callMult, earnPut: M.earnPut, earnCall: M.earnCall }); };
 const st = { ticker: "NVDA", mode: "real", cfg: botRules("NVDA"), log: { real: false, model: true }, range: { real: "ALL", model: "ALL" },
-  cmp: { best: true, bot: true, stock: true, nvda: true, spy: true, cost: true, tbill: true }, blind: false, revealed: false, trace: "all", tab: "backtest" };
+  vis: {}, focus: "main", blind: false, revealed: false, trace: "all", tab: "backtest" };
 let seen = new Set();
 try { seen = new Set(JSON.parse(localStorage.getItem("wheellab.tries") || "[]")); } catch (e) { /* storage unavailable */ }
 const cache = new Map();
@@ -870,23 +890,27 @@ function render() {
   const Bst = bestFor(tk), bestRes = Bst ? evaluate(Object.assign(clone(Bst.best.cfg), { halfSpread: st.cfg.halfSpread }), mode) : null;
   view = { res, base, end, k0, isBot: isBotNow(), bestRes, isBest: isBestNow() };
   noteTry();
-  root.classList.toggle("is-down", run.eq[end] < run.eq[k0]);
+  C = readColors();
+  view.lines = buildLines();
+  if (!view.lines.some((l) => l.key === st.focus)) st.focus = "main";
+  view.focus = view.lines.find((l) => l.key === st.focus);
+  root.classList.toggle("is-down", view.focus.curve[end] < view.focus.curve[k0]);
   C = readColors(); Dots.setColor(C.accent);
+  view.lines = buildLines(); view.focus = view.lines.find((l) => l.key === st.focus);
   const m = metricsOf(res, run.eq, 0, end), mb = metricsOf(base, base.run.eq, 0, end);
-  const mn = metricsOf(res, res.bench.nvda, 0, end), ms = metricsOf(res, res.bench.spy, 0, end), mc = metricsOf(res, res.bench.cost, 0, end);
   const mu = metricsOf(res, res.bench.stock, 0, end), capU = E.capm(run.eq, res.bench.stock, res.bench.tbill, 0, end);
   const stats = statsUpTo(run, end), lt = luckTest(res, base, 0, end);
-  const capN = E.capm(run.eq, res.bench.nvda, res.bench.tbill, 0, end), capS = E.capm(run.eq, res.bench.spy, res.bench.tbill, 0, end), capC = E.capm(run.eq, res.bench.cost, res.bench.tbill, 0, end);
   const ev = E.tradeEV(end >= run.len - 1 ? run.trades : run.trades.filter((t) => t.k1 <= end));
-  $("#who").textContent = view.isBot ? "The bot's rules" : "Your rules";
-  $("#who-mode").textContent = `· ${tk} · ${mode === "real" ? "Real prices" : "Model"}${blindNow ? " · design period" : ""}`;
+  renderFocusPicker();
+  $("#who-mode").textContent = `· ${view.focus.kind === "strategy" ? tk + " · " : ""}${mode === "real" ? "Real prices window" : "Model window"}${blindNow ? " · design period" : ""}`;
   setHero(null);
   renderRangeBar(); renderCompare(null);
   renderCharts();
+  renderScore();
   renderBest(tk);
-  renderStats(m, mb, mu, stats, capN, capS, capC, capU, ev, tk);
+  renderStats(m, mb, mu, stats, capU, ev, tk);
   $("#stats-when").textContent = `${fmtDate(D.dates[run.i0])} to ${fmtDate(D.dates[run.i0 + end])}`;
-  renderStory(m, mb, mn, ms, mc, mu, lt, stats, tk);
+  renderStory(m, mb, mu, lt, stats, tk);
   renderStress(blindNow);
   renderGuard(m, lt, stats);
   renderOOS(split, blindNow);
@@ -941,29 +965,44 @@ function statsUpTo(run, end) {
   if (end >= run.len - 1) return E.tradeStats(run);
   return E.tradeStats({ ...run, trades: run.trades.filter((t) => t.k1 <= end), state: run.state.subarray(0, end + 1), len: end + 1 });
 }
+// Every line the chart can show. Strategies are solid, buy-and-hold is
+// dashed, T-bills dotted. The main line is your rules (or the bot's).
+function buildLines() {
+  const { res, base, isBot, bestRes, isBest, end } = view, eq = res.run.eq;
+  const mainUp = eq[end] >= eq[view.k0];
+  const L = [{ key: "main", label: isBot ? "Bot's rules" : isBest ? "★ Best combo (yours)" : "Your rules", kind: "strategy", curve: eq,
+    color: isBot ? C.bot : isBest ? C.best : mainUp ? C.up : C.down, dash: null, main: true }];
+  if (bestRes && !isBest) L.push({ key: "best", label: "★ Best combo", kind: "strategy", curve: bestRes.run.eq, color: C.best, dash: null });
+  if (!isBot) L.push({ key: "bot", label: "Bot's rules", kind: "strategy", curve: base.run.eq, color: C.bot, dash: null });
+  for (const t of Object.keys(res.bench.held)) L.push({ key: "held:" + t, label: `${t} held`, kind: "held", curve: res.bench.held[t], color: C.held[t] || C.muted, dash: [7, 4] });
+  L.push({ key: "tbill", label: "T-bills", kind: "tbill", curve: res.bench.tbill, color: C.tbill, dash: [1, 4] });
+  return L;
+}
+const defaultOn = (key) => key === "main" || key === "best" || key === "bot" || key === "tbill" || key === "held:" + st.ticker;
+const isOn = (key) => key === st.focus || (st.vis[key] ?? defaultOn(key));
+function renderFocusPicker() {
+  const sel = $("#focus"), lines = view.lines, sig = lines.map((l) => l.key + l.label).join("|");
+  if (sel._sig !== sig) {
+    sel.innerHTML = ""; sel._sig = sig;
+    const groups = [["Strategies", lines.filter((l) => l.kind === "strategy")], ["Just hold the stock", lines.filter((l) => l.kind === "held")], ["Cash", lines.filter((l) => l.kind === "tbill")]];
+    for (const [g, items] of groups) { const og = el("optgroup", { label: g }); items.forEach((l) => og.append(el("option", { value: l.key, text: l.label }))); sel.append(og); }
+    sel.onchange = () => { st.focus = sel.value; st.vis[sel.value] = true; render(); };
+  }
+  sel.value = st.focus;
+}
 function setHero(idx) {
-  const { res, end, k0 } = view, eq = res.run.eq, k = idx == null ? end : Math.min(Math.max(idx, k0), end);
+  const { end, k0, focus } = view, eq = focus.curve, k = idx == null ? end : Math.min(Math.max(idx, k0), end);
   const v = eq[k], d = v - eq[k0], r = v / eq[k0] - 1, up = d >= 0;
   $("#hero-val").textContent = moneyFull(v);
   const chg = $("#hero-chg");
   chg.className = up ? "up" : "down";
   chg.textContent = `${up ? "▲" : "▼"} ${up ? "+" : MINUS}${moneyFull(Math.abs(d)).replace(MINUS, "")} (${pct(r, 2, true)})`;
-  $("#hero-when").textContent = idx == null ? RANGE_WORDS[st.range[st.mode]] : `${fmtDate(D.dates[res.run.i0 + k])}`;
+  $("#hero-when").textContent = idx == null ? RANGE_WORDS[st.range[st.mode]] : `${fmtDate(D.dates[view.res.run.i0 + k])}`;
 }
 function renderRangeBar() {
   const host = $("#rng"); host.innerHTML = "";
   for (const [key] of RANGES[st.mode]) host.append(el("button", { "aria-pressed": String(st.range[st.mode] === key), onclick: () => { st.range[st.mode] = key; render(); } }, key));
   $("#logscale").setAttribute("aria-pressed", String(st.log[st.mode]));
-}
-function cmpSeries() {
-  const { res, base, isBot } = view;
-  const { bestRes, isBest } = view;
-  return [["best", "★ Best combo", C.best, bestRes ? bestRes.run.eq : null, !!bestRes && !isBest, null],
-    ["bot", "Bot's rules", C.bot, base.run.eq, !isBot, null],
-    ["stock", `${st.ticker} held`, C.stock, res.bench.stock, !["NVDA", "SPY", "COST"].includes(st.ticker), [10, 4]],
-    ["nvda", "NVDA held", C.nvda, res.bench.nvda, true, null],
-    ["spy", "SPY held", C.spy, res.bench.spy, true, null], ["cost", "COST held", C.cost, res.bench.cost, true, [8, 3, 2, 3]],
-    ["tbill", "T-bills", C.tbill, res.bench.tbill, true, [1, 4]]].filter((s) => s[4]);
 }
 function lineKey(color, dash, fill) {
   const svg = svgEl("svg", { width: "22", height: "10", viewBox: "0 0 22 10", "aria-hidden": "true" });
@@ -973,24 +1012,52 @@ function lineKey(color, dash, fill) {
   svg.append(ln);
   return svg;
 }
-// The chart legend. The strategy is always shown; comparison lines toggle.
+// Toggle pills above the chart: each lights up in its line's color when on.
 function renderCompare(idx) {
-  const host = $("#cmp"), k = idx == null ? view.end : idx;
-  const mainColor = view.isBot ? C.bot : C.accent, sig = [view.isBot, view.isBest, !!view.bestRes, st.mode, st.ticker, mainColor, C.nvda, C.spy, C.bot, C.cost].join("|");
+  const host = $("#cmp"), k = idx == null ? view.end : idx, lines = view.lines;
+  const sig = lines.map((l) => l.key + l.label + l.color).join("|");
   if (host._sig !== sig) {
     host.innerHTML = ""; host._sig = sig;
-    host.append(el("span", { class: "lg", "data-k": "main", style: `background:color-mix(in srgb, ${mainColor} 11%, transparent)` }, lineKey(mainColor, null, true), view.isBot ? "Bot's rules" : view.isBest ? "★ Best combo (yours)" : "Your rules", el("b", { class: "tnum" })));
-    for (const [key, label, color, , , dash] of cmpSeries()) {
-      host.append(el("button", { "data-k": key, "aria-pressed": String(st.cmp[key]), title: `Show or hide ${label}`, onclick: () => { st.cmp[key] = !st.cmp[key]; render(); } },
-        lineKey(color, dash, false), label, el("b", { class: "tnum" })));
+    for (const l of lines) {
+      host.append(el("button", { "data-k": l.key, style: `--c:${l.color}`, title: `Show or hide ${l.label}`,
+        onclick: () => {
+          const on = isOn(l.key);
+          if (on && lines.filter((x) => isOn(x.key)).length === 1) return; // keep at least one line
+          if (on && l.key === st.focus) st.focus = lines.find((x) => x.key !== l.key && isOn(x.key)).key;
+          st.vis[l.key] = !on; render();
+        } }, el("span", { class: "on", "aria-hidden": "true", text: "✓" }), lineKey(l.color, l.dash, l.main), l.label, el("b")));
     }
   }
-  host.querySelector('[data-k="main"] b').textContent = money(view.res.run.eq[k]);
-  for (const [key, , , curve] of cmpSeries()) {
-    const b = host.querySelector(`[data-k="${key}"]`); if (!b) continue;
-    b.setAttribute("aria-pressed", String(st.cmp[key]));
-    b.querySelector("b").textContent = money(curve[k]);
+  for (const l of lines) {
+    const b = host.querySelector(`[data-k="${CSS.escape(l.key)}"]`); if (!b) continue;
+    b.setAttribute("aria-pressed", String(isOn(l.key)));
+    b.querySelector("b").textContent = money(l.curve[k]);
   }
+}
+// The comparison table: every line that's on, measured over the chosen range.
+function renderScore() {
+  const { lines, end, k0, focus, res } = view, t = $("#score"); t.innerHTML = "";
+  const on = lines.filter((l) => isOn(l.key));
+  const yrs = (D.day[res.run.i0 + end] - D.day[res.run.i0 + k0]) / 365.25;
+  const rows = on.map((l) => {
+    const a = l.curve[k0], b = l.curve[end];
+    let peak = a, dd = 0;
+    for (let k = k0; k <= end; k++) { peak = Math.max(peak, l.curve[k]); dd = Math.min(dd, l.curve[k] / peak - 1); }
+    return { l, value: b, pnl: b - a, ret: b / a - 1, cagr: Math.pow(b / a, 1 / yrs) - 1, dd };
+  }).sort((x, y) => y.value - x.value);
+  const fv = focus.curve[end];
+  $("#score-note").textContent = `${RANGE_WORDS[st.range[st.mode]].toLowerCase()}, from $25k · tap a row to show its P&L above`;
+  t.append(el("thead", {}, el("tr", {}, ...["Line", "Value", "P&L", "Return", "Per year", "Worst drop", `vs ${focus.label}`].map((h) => el("th", { text: h })))));
+  const tb = el("tbody");
+  for (const r of rows) {
+    const isF = r.l.key === focus.key, diff = r.value / fv - 1;
+    tb.append(el("tr", { class: isF ? "focus" : "", onclick: () => { st.focus = r.l.key; render(); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+      el("td", {}, el("span", { class: "key" }, lineKey(r.l.color, r.l.dash, r.l.main), r.l.label)),
+      el("td", { text: money(r.value) }), el("td", { class: r.pnl >= 0 ? "pos" : "neg", text: (r.pnl >= 0 ? "+" : MINUS) + money(Math.abs(r.pnl)) }),
+      el("td", { class: r.ret >= 0 ? "pos" : "neg", text: pct(r.ret, 1, true) }), el("td", { text: pct(r.cagr, 1, true) }), el("td", { text: pct(r.dd) }),
+      el("td", { class: isF ? "" : diff >= 0 ? "pos" : "neg", text: isF ? "—" : `${pct(diff, 1, true)}` })));
+  }
+  t.append(tb);
 }
 
 // ---------- charts ----------
@@ -1000,27 +1067,28 @@ let replayTimer = null;
 function renderCharts() {
   if (replayTimer) { cancelAnimationFrame(replayTimer); replayTimer = null; }
   const { res, base, end, k0, isBot } = view, run = res.run, n = end + 1;
-  const und = res.bench.stock, undColor = { NVDA: C.nvda, SPY: C.spy, COST: C.cost }[st.ticker] || C.stock;
+  // Drops chart: the line you're viewing vs holding the stock (or vs your rules when viewing the stock).
+  const fc = view.focus, cmpLine = fc.key === "held:" + st.ticker ? view.lines[0] : view.lines.find((l) => l.key === "held:" + st.ticker);
   const xs = new Array(n), ddY = new Array(n), ddN = new Array(n);
   let pY = 0, pN = 0;
   for (let k = 0; k < n; k++) {
     xs[k] = D.day[run.i0 + k] * 86400;
-    pY = Math.max(pY, run.eq[k]); pN = Math.max(pN, und[k]);
-    ddY[k] = (run.eq[k] / pY - 1) * 100; ddN[k] = (und[k] / pN - 1) * 100;
+    pY = Math.max(pY, fc.curve[k]); pN = Math.max(pN, cmpLine.curve[k]);
+    ddY[k] = (fc.curve[k] / pY - 1) * 100; ddN[k] = (cmpLine.curve[k] / pN - 1) * 100;
   }
+  $("#dd-note").textContent = `${fc.label} vs ${cmpLine.label}`;
   const width = Math.max(260, $("#ch-eq").clientWidth), tz = (ts) => uPlot.tzDate(new Date(ts * 1e3), "Etc/UTC"), sync = { key: "wl" };
   const xmin = xs[k0], xmax = xs[end], logScale = st.log[st.mode];
-  const shown = cmpSeries().filter(([key]) => st.cmp[key]);
+  // Draw the lines that are on; the focused line goes last (on top) with a soft fill.
+  const shown = view.lines.filter((l) => isOn(l.key)).sort((a, b) => (a.key === st.focus) - (b.key === st.focus));
   const series = [{}], data = [xs], tags = [];
-  for (const [key, label, color, curve, , dash] of shown.slice().reverse()) {
-    series.push({ label, stroke: color, width: key === "best" ? 2.6 : key === "bot" || (dash && dash[0] === 1) ? 2 : 1.6, dash: dash || undefined, cap: dash && dash[0] === 1 ? "round" : "butt", points: { show: false } });
-    data.push(Array.from(curve.subarray(0, n))); tags.push({ color, label, main: false });
+  for (const l of shown) {
+    const focused = l.key === st.focus, rgb = hexRgb(l.color);
+    series.push({ label: l.label, stroke: l.color, width: focused ? 2.6 : l.kind === "strategy" ? 2 : 1.6, dash: l.dash || undefined, cap: l.dash && l.dash[0] === 1 ? "round" : "butt", points: { show: false },
+      fill: focused ? (u) => { const g = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height); g.addColorStop(0, `rgba(${rgb},0.15)`); g.addColorStop(1, `rgba(${rgb},0)`); return g; } : undefined });
+    data.push(Array.from(l.curve.subarray(0, n))); tags.push({ color: l.color, label: l.label, main: focused });
   }
-  const accent = isBot ? C.bot : C.accent, rgb = hexRgb(accent);
-  series.push({ label: "Yours", stroke: accent, width: 2.25, points: { show: false },
-    fill: (u) => { const g = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height); g.addColorStop(0, `rgba(${rgb},0.16)`); g.addColorStop(1, `rgba(${rgb},0)`); return g; } });
-  data.push(Array.from(run.eq.subarray(0, n))); tags.push({ color: accent, label: isBot ? "Bot" : "Yours", main: true });
-  const startVal = run.eq[k0];
+  const startVal = fc.curve[k0];
   const visRange = (u, mn, mx) => {
     let lo = Infinity, hi = -Infinity;
     for (let s = 1; s < u.data.length; s++) for (let k = k0; k <= end; k++) { const v = u.data[s][k]; if (v != null) { if (v < lo) lo = v; if (v > hi) hi = v; } }
@@ -1064,7 +1132,7 @@ function renderCharts() {
     cursor: { sync, drag: { x: false, y: false }, y: false, points: { size: 6, width: 2, fill: C.panel } },
     scales: { x: { time: true, min: xmin, max: xmax, auto: false }, y: { range: () => [ddLo * 1.08 - 0.5, 0] } },
     axes: [{ ...AX(), size: 40, grid: { show: false } }, { ...AX(), side: 1, size: 78, values: (u, v) => v.map((x) => x == null ? "" : (x < 0 ? MINUS : "") + Math.abs(x).toFixed(0) + "%") }],
-    series: [{}, { label: st.ticker, stroke: undColor, width: 1.25, points: { show: false } }, { label: "Yours", stroke: C.down, width: 1.75, fill: `rgba(${drgb},0.14)`, points: { show: false } }],
+    series: [{}, { label: cmpLine.label, stroke: cmpLine.color, width: 1.25, dash: cmpLine.dash || undefined, points: { show: false } }, { label: fc.label, stroke: C.down, width: 1.75, fill: `rgba(${drgb},0.14)`, points: { show: false } }],
   }, [xs, ddN, ddY]);
   const stateColors = [C.cash, C.put, C.call, C.stuck];
   mount("state", {
@@ -1110,7 +1178,7 @@ function stat(label, concept, value, sub, cls = "") {
   return el("div", { class: "stat" }, el("div", { class: "k" }, label, el("button", { class: "q", "data-c": concept, "aria-label": "Explain " + label, text: "?" })),
     el("div", { class: "v " + cls, text: value }), el("div", { class: "s", text: sub }));
 }
-function renderStats(m, mb, mu, s, capN, capS, capC, capU, ev, tk) {
+function renderStats(m, mb, mu, s, capU, ev, tk) {
   const host = $("#stats"); host.innerHTML = "";
   const bot = (x) => view.isBot ? "" : `Bot ${x} · `;
   const run = view.res.run, months = m.years * 12, full = view.end >= run.len - 1;
@@ -1137,24 +1205,20 @@ function renderStats(m, mb, mu, s, capN, capS, capC, capU, ev, tk) {
   const move = (b, who) => `${num(b, 2)}% per 1% ${who} move`;
   host.append(
     stat(`Beta to ${tk}`, "beta", num(capU.beta), move(capU.beta, tk)),
-    stat("Beta to SPY", "beta", num(capS.beta), move(capS.beta, "SPY")),
+    stat(`Alpha vs ${tk}`, "alpha", `${pct(capU.alpha, 1, true)}/yr`, noise(capU.t)),
     stat("Sortino", "sortino", num(m.sortino), `${tk} held ${num(mu.sortino)}`),
-    stat(`Alpha vs ${tk} (the stock)`, "alpha", `${pct(capU.alpha, 1, true)}/yr`, noise(capU.t)),
-    ...(tk === "SPY" ? [] : [stat("Alpha vs SPY", "alpha", `${pct(capS.alpha, 1, true)}/yr`, noise(capS.t))]),
-    ...(tk === "NVDA" ? [] : [stat("Alpha vs NVDA", "alpha", `${pct(capN.alpha, 1, true)}/yr`, noise(capN.t))]),
-    ...(tk === "COST" ? [] : [stat("Alpha vs COST", "alpha", `${pct(capC.alpha, 1, true)}/yr`, noise(capC.t))]),
   );
 }
 function pill(text, kind, icon) {
   const col = { good: C.good, warn: C.warn, serious: C.serious, critical: C.critical, muted: C.muted }[kind] || C.muted;
   return el("span", { class: "pill" }, el("span", { class: "ic", style: `background:${col}`, text: icon }), text);
 }
-function renderStory(m, mb, mn, ms, mc, mu, lt, stats, tk) {
+function renderStory(m, mb, mu, lt, stats, tk) {
   const v1 = $("#verdict-1"); v1.innerHTML = "";
   v1.append(el("strong", { text: view.isBot ? "The bot's rules" : "Your rules" }), ` made ${pct(m.cagr)} a year with a worst drop of ${pct(m.maxDD)}. `,
     ...(view.isBot ? [] : [`The bot's rules made ${pct(mb.cagr)} with a worst drop of ${pct(mb.maxDD)}. `]),
-    `Just holding ${tk}, the stock being wheeled, made ${pct(mu.cagr)} (worst drop ${pct(mu.maxDD)}). For reference, NVDA made ${pct(mn.cagr)}, SPY ${pct(ms.cagr)} and COST ${pct(mc.cagr)}.`);
-  $("#verdict-2").textContent = view.isBot ? "Change a setting in the Strategy panel to test an idea. Everything is compared with these rules and with just holding NVDA, SPY, COST or T-bills."
+    `Just holding ${tk} made ${pct(mu.cagr)} a year (worst drop ${pct(mu.maxDD)}).`);
+  $("#verdict-2").textContent = view.isBot ? "Change a setting in the Strategy panel to test an idea. Turn on any comparison with the pills above the chart."
     : `Risk-adjusted, your rules are ${m.sharpe > mb.sharpe ? "better" : "worse"} than the bot's (Sharpe ${num(m.sharpe)} vs ${num(mb.sharpe)}). ` +
       (lt.diff <= 0 ? "" : lt.survives ? `The edge is bigger than luck would produce after ${lt.N} tries.` : `After ${lt.N} tries, an edge this size could still be luck.`);
   const p = $("#verdict-pills"); p.innerHTML = "";
@@ -1173,7 +1237,7 @@ function sbar(v, scale) {
 }
 function renderStress(blindNow) {
   const { res, base, isBot } = view, t = $("#stress"); t.innerHTML = "";
-  const cols = [[isBot ? "Bot" : "Yours", res.run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(["NVDA", "SPY", "COST"].includes(st.ticker) ? [] : [[st.ticker, res.bench.stock]]), ["NVDA", res.bench.nvda], ["SPY", res.bench.spy], ["COST", res.bench.cost]];
+  const cols = [[isBot ? "Bot" : "Yours", res.run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(view.bestRes && !view.isBest ? [["★ Best", view.bestRes.run.eq]] : []), [`${st.ticker} held`, res.bench.stock]];
   t.append(el("thead", {}, el("tr", {}, el("th", { text: "Period" }), ...cols.map(([h]) => el("th", { text: h })))));
   const tb = el("tbody"), splitIso = E.WINDOWS[st.mode].split;
   for (const [name, a, b] of E.REGIMES[st.mode]) {
@@ -1281,7 +1345,7 @@ function renderAttribution() {
 }
 function renderYearly() {
   const { res, base, end, isBot } = view, run = res.run, t = $("#yearly"); t.innerHTML = "";
-  const cols = [[isBot ? "Bot" : "Yours", run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(["NVDA", "SPY", "COST"].includes(st.ticker) ? [] : [[st.ticker, res.bench.stock]]), ["NVDA", res.bench.nvda], ["SPY", res.bench.spy], ["COST", res.bench.cost]];
+  const cols = [[isBot ? "Bot" : "Yours", run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(view.bestRes && !view.isBest ? [["★ Best", view.bestRes.run.eq]] : []), [`${st.ticker} held`, res.bench.stock]];
   t.append(el("thead", {}, el("tr", {}, el("th", { text: "Year" }), ...cols.map(([h]) => el("th", { text: h })))));
   const tb = el("tbody");
   let start = 0;

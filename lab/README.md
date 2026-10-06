@@ -6,7 +6,7 @@ mode, and overfitting guards. Open `lab/index.html` in a browser.
 
 Rebuild the data after refreshing research data:
 
-    research/.venv/bin/python research/prefetch_ticker.py SPY COST AMZN WMT JNJ XOM
+    research/.venv/bin/python research/prefetch_ticker.py AMZN WMT JNJ XOM
     research/.venv/bin/python lab/build_data.py   # lab/data.js (NVDA) + lab/data_<TICKER>.js, gitignored
     node lab/parity_test.js                       # engine must match Python
     node lab/search.js                            # ~2 min per ticker: every rule combination -> lab/best.js

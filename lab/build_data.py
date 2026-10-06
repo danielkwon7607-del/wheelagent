@@ -3,7 +3,7 @@
 Run after research/fetch_data.py and research/prefetch.py, with the research venv:
     research/.venv/bin/python lab/build_data.py
 
-Writes lab/data.js (gitignored, a few MB): daily NVDA/SPY prices, T-bill
+Writes lab/data.js (gitignored, a few MB): daily stock prices, T-bill
 rates, earnings dates, real NVDA option closes since the June 2024 split,
 and reference results from the Python research engine, which the page's
 JavaScript engine is checked against (lab/parity_test.js).
@@ -40,8 +40,7 @@ earnings = [d.isoformat() for d in w.earnings_days(START, date(2027, 1, 31))]
 
 # --- real option chains and bars, per underlying ---
 DATA = os.path.join(HERE, "..", "research", "data")
-# Stocks a $25k account can wheel. SPY and COST were tested and dropped: one
-# contract needs $78k-$105k. Their prices stay in data.js as benchmark lines.
+# Stocks a $25k account can wheel.
 CACHES = {"NVDA": "opt_cache.pkl", "AMZN": "opt_cache_AMZN.pkl", "WMT": "opt_cache_WMT.pkl",
           "JNJ": "opt_cache_JNJ.pkl", "XOM": "opt_cache_XOM.pkl"}
 CACHES = {k: v for k, v in CACHES.items() if os.path.exists(os.path.join(DATA, v))}
@@ -144,7 +143,7 @@ for sym, fname in CACHES.items():
     elif os.path.exists(efile):
         earn_iso = reaction_days(pd.read_pickle(efile))
     else:
-        earn_iso = []  # SPY: an index fund has no earnings
+        earn_iso = []
     earn_d = [date.fromisoformat(e) for e in earn_iso]
     cal = calibrate(sym, cache, px, earn_d)
     # NVDA keeps the research model's calibration so it matches the Python engine
@@ -156,7 +155,7 @@ for sym, fname in CACHES.items():
     # higher. Others run on the smallest account that fits one contract at the peak.
     fits_today = float(real_px.iloc[-1]) * 100 * 0.95 <= 25000
     capital = 25000 if fits_today else int(math.ceil(float(real_px.max()) * 100 / 10000) * 10000)
-    tickers[sym] = {"close": col(px), "tr": col(closes(sym, w._stock_all)), "chains": chains, "bars": bars, "earnings": earn_iso, "model": model, "capital": capital}
+    tickers[sym] = {"close": col(px), "chains": chains, "bars": bars, "earnings": earn_iso, "model": model, "capital": capital}
     print(f"{sym}: {len(chains)} expiries, {len(bars)} contracts, capital ${capital:,}, model {model}, measured {cal}")
 
 # --- reference results from the Python research engines (parity targets) ---
@@ -179,9 +178,7 @@ for name, cfg in (("model_current", Sim()), ("model_dte45", Sim(dte_min=45)), ("
 data = {
     "built": datetime.now().isoformat(timespec="minutes"),
     "dates": [d.isoformat() for d in dates],
-    "nvdaTR": col(w.NVDA_TR),
-    "spyTR": col(w.SPY_TR),
-    "costTR": col(w.COST_TR),
+    "stockTR": {sym: col(closes(sym, w._stock_all)) for sym in tickers},  # total return, for "held" lines
     "tbill": tbill,
     "tickers": {"NVDA": tickers["NVDA"]},
     "tickerList": [{"sym": k, "capital": v["capital"]} for k, v in tickers.items()],

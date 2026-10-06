@@ -93,7 +93,8 @@
     const tickers = {};
     const D = {
       L, n, day, dayIndex, tickers, dates: L.dates, rollStd,
-      nvdaTR: Float64Array.from(L.nvdaTR), spyTR: Float64Array.from(L.spyTR), costTR: Float64Array.from(L.costTR || L.spyTR), tbill: Float64Array.from(L.tbill),
+      tbill: Float64Array.from(L.tbill),
+      stockTR: Object.fromEntries(Object.entries(L.stockTR).map(([k, v]) => [k, Float64Array.from(v)])), // total return per stock
     };
     for (const [tk, T] of Object.entries(L.tickers)) E.addTicker(D, tk, T);
     return Object.assign(D, tickers.NVDA);
@@ -108,7 +109,7 @@
     for (const [iso, ch] of Object.entries(T.chains || {})) {
       chains.set(epochDay(iso), { P: ch.P.slice().sort((a, b) => a[0] - b[0]), C: ch.C.slice().sort((a, b) => a[0] - b[0]) });
     }
-    D.tickers[tk] = { ticker: tk, S, tr: Float64Array.from(T.tr || T.close), rv, chains, bars: T.bars, earnings: T.earnings.map(epochDay), barCache: new Map(), model: T.model, capital: T.capital };
+    D.tickers[tk] = { ticker: tk, S, tr: D.stockTR[tk] || S, rv, chains, bars: T.bars, earnings: T.earnings.map(epochDay), barCache: new Map(), model: T.model, capital: T.capital };
     return D.tickers[tk];
   };
   // The dataset seen by one simulation: shared calendar + that ticker's prices.
@@ -172,7 +173,7 @@
     const fillSell = (px) => real ? Math.max(0, px - Math.max(0.01, px * hs)) - FEE / 100 : px * (1 - hs);
     const fillBuy = (px) => real ? px + Math.max(0.01, px * hs) + FEE / 100 : px * (1 + hs);
     // Model IV = realized vol x a multiplier. NVDA uses one calibrated number
-    // (as in the research engine); SPY and COST follow a curve measured at
+    // (as in the research engine); the other stocks follow a curve measured at
     // several strike distances, scaled by the pricing lever.
     const interp = (curve, x) => {
       if (x <= curve[0][0]) return curve[0][1];
@@ -371,20 +372,20 @@
   };
 
   // ---------- benchmarks & metrics ----------
+  // Buy-and-hold curves for every stock (same $25k start) and the T-bill curve.
   E.benchmarks = function (D, i0, i1, ticker = "NVDA") {
-    const len = i1 - i0 + 1, nv = new Float64Array(len), sp = new Float64Array(len), co = new Float64Array(len), st = new Float64Array(len), tbc = new Float64Array(len);
-    const tr = (D.tickers[ticker] || D.tickers.NVDA).tr;
+    const len = i1 - i0 + 1, held = {}, tbc = new Float64Array(len);
+    for (const [tk, tr] of Object.entries(D.stockTR)) {
+      const c = new Float64Array(len);
+      for (let k = 0; k < len; k++) c[k] = CAP * tr[i0 + k] / tr[i0];
+      held[tk] = c;
+    }
     let v = CAP;
     for (let k = 0; k < len; k++) {
-      const i = i0 + k;
-      nv[k] = CAP * D.nvdaTR[i] / D.nvdaTR[i0];
-      sp[k] = CAP * D.spyTR[i] / D.spyTR[i0];
-      co[k] = CAP * D.costTR[i] / D.costTR[i0];
-      st[k] = CAP * tr[i] / tr[i0];
-      if (k > 0) v *= 1 + D.tbill[i - 1] * (D.day[i] - D.day[i - 1]) / 360;
+      if (k > 0) v *= 1 + D.tbill[i0 + k - 1] * (D.day[i0 + k] - D.day[i0 + k - 1]) / 360;
       tbc[k] = v;
     }
-    return { nvda: nv, spy: sp, cost: co, stock: st, tbill: tbc };
+    return { held, stock: held[ticker] || held.NVDA, tbill: tbc };
   };
 
   function mean(a) { let s = 0; for (const x of a) s += x; return s / a.length; }
