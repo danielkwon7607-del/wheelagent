@@ -678,16 +678,21 @@ const CONCEPTS = {
   winrate: { g: "Reading results", t: "The win rate trap", s: "Winning most trades says little.",
     p: ["Short options win most of the time, so the win rate looks great. What matters is the average win against the size of the rare big losses."],
     w: "In 2024 to 2026 the bot's rules won 94% of trades. The average win was $59 and the worst trade lost $1,586.", x: "", r: ["worstmonth", "attribution"] },
-  tickers: { g: "The wheel", t: "Which stock to wheel", s: "NVDA, SPY or COST: same rules, very different results.",
+  tickers: { g: "The wheel", t: "Which stock to wheel", s: "Same rules, very different results on each stock.",
     p: ["The toggle runs the same rules on a different stock, using that stock's own real option prices and measured pricing. It answers whether the wheel itself is any good, or whether it only worked because NVDA went up 10×.",
         "A fixed \"10% below\" strike means very different risk on each stock. NVDA swings about 45% a year, so 10% below is a 0.07 to 0.10 delta. SPY swings about 15%, so 10% below is around 0.02 delta: almost no premium and almost never assigned. Choosing strikes by delta keeps the risk comparable across stocks."],
-    w: "One SPY contract needs about $77k of cash and one COST contract about $105k, so the bot's $25k can't trade either. The lab runs them on the smallest account that fits one contract and shows results per $25k. Index options (SPY) tend to carry a bigger seller's edge than single stocks, which shows up in the model.",
-    x: "Dividends paid on shares you hold after assignment aren't counted. That's small for these three, but it slightly understates SPY.", r: ["delta", "vrp", "benchmark"] },
+    w: "Every stock here fits a $25k account at today's price. When a stock traded higher in the past, the lab caps the strike at what $25k covers, exactly like the bot does. SPY and COST were tested and dropped: one contract needs $78k to $105k.",
+    x: "Dividends paid on shares you hold after assignment aren't counted, which slightly understates the steady dividend payers like JNJ, XOM and WMT.", r: ["delta", "vrp", "benchmark"] },
   best: { g: "Testing honestly", t: "How the best combination was picked", s: "Every combination, scored for Sharpe and return, chosen from a plateau.",
     p: ["For each stock, the search runs about 30,000 rule combinations: 10 strike choices, 6 expiries, 4 take-profit levels, 3 loss rules, 7 covered-call rules, earnings on or off, and the pricey-options filter on or off (real prices only).",
         "Each combination gets a score: its average percentile rank on Sharpe and on yearly return, on real prices and on the model. Then each combination's score is replaced by the median of itself and its neighbors (one notch different on strike, expiry, take-profit or loss rule). The best is the one with the best neighborhood, so a single lucky setting can't win. It also needs at least 30 trades in the real window and 8%+ a year on real prices, the project's goal. Without that floor, the score picks rules on calm stocks that barely take risk and earn little more than T-bills."],
     w: "After that many tries, some combination will look great by chance. The luck check compares the pick with the bot's rules and asks whether its edge beats what luck could produce after ~30,000 tries. Usually it doesn't on 2.3 years of data, which is why the next step is a forward test, not a switch.",
     x: "The red line is the best combination for the stock you have selected, on the prices you're viewing.", r: ["tries", "plateau", "oos"] },
+  income: { g: "Reading results", t: "Cash income per month", s: "The extra cash the $25k produces.",
+    p: ["Option income is the premium you keep: the full premium when an option expires or gets assigned, or the net when you buy it back early. Interest is what the idle cash earned in T-bills. Together they're the cash the account throws off, averaged per month.",
+        "It's the number that matches the goal of selling options for extra cash. Compare it with T-bills alone: $25k at about 4% earns roughly $85 a month with no risk."],
+    w: "What happens to shares after an assignment isn't counted here. Buying shares above market or selling them below it can be much bigger than the income in either direction; \"Where the money came from\" shows the full picture (it books those assignment gaps against the options).",
+    x: "Higher income usually means closer strikes and more assignments, so check the worst drop next to it.", r: ["premium", "attribution", "tbills"] },
   ev: { g: "Reading results", t: "EV (expected value) per trade", s: "The average result of one option trade.",
     p: ["Win rate times the average win, minus the loss rate times the average loss. Positive EV means the trades make money on average.", "In Real mode it's in dollars per contract. In the Model it's a percentage of the capital at risk, because the dollar size grows over the years."],
     w: "The bot's rules on real prices won 94% of trades for about $59 each and lost about $585 on the rest, which nets out to roughly +$20 a trade. Small, positive, and very sensitive to the size of the rare losses.",
@@ -1108,11 +1113,13 @@ function stat(label, concept, value, sub, cls = "") {
 function renderStats(m, mb, mu, s, capN, capS, capC, capU, ev, tk) {
   const host = $("#stats"); host.innerHTML = "";
   const bot = (x) => view.isBot ? "" : `Bot ${x} · `;
+  const run = view.res.run, months = m.years * 12, full = view.end >= run.len - 1;
+  const optMo = run.cashPremium / months, intMo = run.interest / months;
   host.append(
     stat("Per year", "cagr", pct(m.cagr, 1, true), `${bot(pct(mb.cagr))}${tk} held ${pct(mu.cagr)}`),
     stat("Worst drop", "maxdd", pct(m.maxDD), (m.recovery != null ? `Recovered in ${m.recovery} days` : "Not recovered yet") + ` · ${tk} ${pct(mu.maxDD, 0)}`),
-    stat("Sharpe", "sharpe", num(m.sharpe), `${bot(num(mb.sharpe))}${tk} held ${num(mu.sharpe)}`),
-    stat("Bumpiness", "vol", pct(m.vol, 0), `${tk} held ${pct(mu.vol, 0)} a year`),
+    stat("Cash income / month", "income", full ? money(optMo + intMo) : "–", full ? `Options ${money(optMo)} + interest ${money(intMo)}` : "Reveal the test period to see it"),
+    stat("Sharpe", "sharpe", num(m.sharpe), `${bot(num(mb.sharpe))}${tk} held ${num(mu.sharpe)} · bumpiness ${pct(m.vol, 0)}`),
     stat("Worst month", "worstmonth", pct(m.worstMonth), `Bad days avg ${pct(m.cvar5, 2)}`),
     stat("No-income days", "stuck", pct(s.stuckDays, 0), `Holding shares ${pct(s.shareDays, 0)} of days`),
     stat("Trades", "winrate", String(s.trades), `${s.assigned} assigned · ${s.called} called away · median Δ ${num(s.putDelta, 2)}`),

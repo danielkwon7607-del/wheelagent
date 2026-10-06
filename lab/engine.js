@@ -361,8 +361,12 @@
     function fmtQty(x) { return Number.isInteger(x) ? String(x) : x.toFixed(1); }
 
     const premium = trades.reduce((s, t) => s + t.pnl, 0);
+    // Cash view of option income: premium kept when an option expires or is
+    // assigned, or the net when it's bought back early. What an assignment does
+    // to the shares belongs to the stock, not to option income.
+    const cashPremium = trades.reduce((s, t) => s + (t.outcome === "take_profit" || t.outcome === "loss_cut" ? t.entry - t.exit : t.entry) * t.qty, 0);
     if (scale !== 1) for (let k = 0; k < len; k++) eq[k] *= scale;
-    return { mode, ticker, i0, i1, len, eq, state, trades, events, interest: interest * scale, shareGains: shareGains * scale, premium: premium * scale,
+    return { mode, ticker, i0, i1, len, eq, state, trades, events, interest: interest * scale, shareGains: shareGains * scale, premium: premium * scale, cashPremium: cashPremium * scale,
              endCash: cash, endShares: q, capital: CAPX };
   };
 

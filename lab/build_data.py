@@ -40,8 +40,10 @@ earnings = [d.isoformat() for d in w.earnings_days(START, date(2027, 1, 31))]
 
 # --- real option chains and bars, per underlying ---
 DATA = os.path.join(HERE, "..", "research", "data")
-CACHES = {"NVDA": "opt_cache.pkl", "SPY": "opt_cache_SPY.pkl", "COST": "opt_cache_COST.pkl", "AMZN": "opt_cache_AMZN.pkl",
-          "WMT": "opt_cache_WMT.pkl", "JNJ": "opt_cache_JNJ.pkl", "XOM": "opt_cache_XOM.pkl"}
+# Stocks a $25k account can wheel. SPY and COST were tested and dropped: one
+# contract needs $78k-$105k. Their prices stay in data.js as benchmark lines.
+CACHES = {"NVDA": "opt_cache.pkl", "AMZN": "opt_cache_AMZN.pkl", "WMT": "opt_cache_WMT.pkl",
+          "JNJ": "opt_cache_JNJ.pkl", "XOM": "opt_cache_XOM.pkl"}
 CACHES = {k: v for k, v in CACHES.items() if os.path.exists(os.path.join(DATA, v))}
 
 
