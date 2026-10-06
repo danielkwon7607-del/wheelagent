@@ -14,8 +14,9 @@ adding something means editing or replacing something — not appending.
 - Capital: $25k set aside for the challenge. Enforced in code as
   strategy.CAPITAL_CAP (put collateral + share cost basis), whatever the
   paper account balance says.
-- Goal: beat the market, >=8% annual (README). No reconciled P&L yet;
-  rebuild it from account activities (Phase 5), don't trust old figures.
+- Goal (Daniel, 2026-10-05): extra cash from selling options on $25k,
+  >=8%/yr (README). Judge by cash income/month and drawdown, not by beating
+  NVDA in a rally (the wheel can't). No reconciled P&L yet (Phase 5).
 - Current rules (not yet revisited): put strike 10% below spot (~0.07
   delta in Oct 2026, premiums ~$0.50-1.25), call strike 10% above cost
   basis, expiry = first Friday >=14 days out (14-20 DTE), close at 50%
@@ -51,9 +52,9 @@ adding something means editing or replacing something — not appending.
   lab/dist/wheel-lab.html with data.js + engine.js as files). engine.js must
   match research/ on the original rules: run node lab/parity_test.js after
   any engine change. Tries start at 40 (the research grid + model runs).
-  Tickers NVDA/AMZN/WMT/JNJ/XOM/SPY/COST (research/prefetch_ticker.py; non-
-  NVDA load lazily from data_<TK>.js). Fits $25k today -> $25k account (strike
-  capped like the bot); SPY/COST run $80k/$110k, shown per $25k. Model IV
+  Wheel tickers NVDA/AMZN/WMT/JNJ/XOM (all fit $25k; non-NVDA load lazily
+  from data_<TK>.js; strikes capped like the bot). SPY/COST were dropped as
+  too costly per contract and stay as benchmark lines only. Model IV
   uses measured skew curves; NVDA stays flat 1.13 for parity. lab/search.js
   (30,240 combos/ticker, ~2 min each) writes best.js: plateau pick, 30+
   trades, 8%/yr floor, design-only pick + luck check. Red line = that pick.
