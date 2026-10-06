@@ -150,6 +150,13 @@
     skipEarnings: false, volFilter: null, sizing: "one",
     putMult: 1.13, callMult: 1.0, earnPut: 1.4, earnCall: 1.1, halfSpread: 0.03,
   };
+  // The textbook wheel, with none of the bot's rules: sell a 0.30-delta put
+  // about a month out and hold it to expiry; if assigned, sell calls at or
+  // above the cost basis and hold those to expiry too. Then repeat.
+  E.BASIC_RULES = Object.assign(JSON.parse(JSON.stringify(E.BOT_RULES)), {
+    put: { method: "delta", otm: 0.10, delta: 0.30 }, dte: 30, tp: null, loss: null,
+    call: { method: "basis", otm: 0, delta: 0.25, under: 0.20 }, skipEarnings: false, volFilter: null, sizing: "one",
+  });
   E.WINDOWS = {
     real: { start: "2024-06-10", end: "2026-10-02", split: "2025-07-01" },
     model: { start: "2016-04-01", end: "2026-10-02", split: "2022-01-01" },

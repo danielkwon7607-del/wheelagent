@@ -33,11 +33,9 @@
   --cmp-bot: #2a78d6;
   --cmp-best: #dc2626;
   --cmp-tbill: #c98500;
+  --cmp-basic: #111316;
   --held-NVDA: #1f6b2a;
   --held-AMZN: #7b61ff;
-  --held-WMT: #111316;
-  --held-JNJ: #a0522d;
-  --held-XOM: #1d8fa8;
   --st-put: #1d8fa8;
   --st-call: #7b61ff;
   --st-stuck: #e5484d;
@@ -57,7 +55,7 @@
     --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
     --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
     --cmp-bot: #3987e5; --cmp-tbill: #c98500;
-    --held-NVDA: #28713c; --held-AMZN: #9085e9; --held-WMT: #f3f4f6; --held-JNJ: #9c5a3c; --held-XOM: #2694ad;
+    --cmp-basic: #f3f4f6; --held-NVDA: #28713c; --held-AMZN: #9085e9;
     --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
     --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -70,7 +68,7 @@
   --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
   --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
   --cmp-bot: #3987e5; --cmp-tbill: #c98500;
-  --held-NVDA: #28713c; --held-AMZN: #9085e9; --held-WMT: #f3f4f6; --held-JNJ: #9c5a3c; --held-XOM: #2694ad;
+  --cmp-basic: #f3f4f6; --held-NVDA: #28713c; --held-AMZN: #9085e9;
   --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
   --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -151,6 +149,13 @@ section.sec:first-child { border-top: 0; padding-top: 0; }
 .cmp button[aria-pressed="true"] .on { background: var(--c); border-color: var(--c); }
 .focus-pick { appearance: none; -webkit-appearance: none; border: 0; background: var(--sunken) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23868c95' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center; border-radius: 8px; padding: 4px 28px 4px 10px; font: 600 14px var(--f-ui); color: var(--ink); cursor: pointer; }
 .score tr.focus td { font-weight: 700; color: var(--ink); }
+.combos th.grp { text-align: center; color: var(--ink-2); border-bottom: 0; padding-bottom: 0; }
+.combos tr { cursor: pointer; }
+.combos tr:hover td { background: var(--sunken); }
+.combos tr.cur td { font-weight: 700; color: var(--ink); }
+.combos tr.held td { color: var(--muted); }
+.combos tr.sep td { border-top: 2px solid var(--line-2); }
+.combos .badge { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--cmp-best); color: #fff; font-size: 11px; font-weight: 700; vertical-align: 1px; }
 .score tr { cursor: pointer; }
 .score tr:hover td { background: var(--sunken); }
 .score td .key { display: inline-flex; align-items: center; gap: 8px; }
@@ -242,7 +247,7 @@ td.hid { color: var(--muted); font-style: italic; }
 .tabs2 { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--sunken); margin-block: 14px 6px; }
 .tabs2 button { flex: 1; border: 0; background: transparent; border-radius: 8px; padding: 7px 8px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--muted); }
 .tabs2 button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
-.tk-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 10px; background: var(--sunken); margin-top: 6px; }
+.tk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 4px; padding: 3px; border-radius: 10px; background: var(--sunken); margin-top: 6px; }
 .tk-grid button { border: 0; background: transparent; border-radius: 8px; padding: 6px 4px; cursor: pointer; display: grid; gap: 0; line-height: 1.2; color: var(--muted); }
 .tk-grid button b { font-weight: 700; font-size: 13px; color: var(--ink-2); }
 .tk-grid button span { font-size: 10.5px; }
@@ -369,6 +374,12 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
         <div class="mini-h">What it was holding <button class="q" data-c="stuck" aria-label="Explain no-income days">?</button><span class="legend" id="legend-state"></span></div>
         <div class="chart" id="ch-state"></div>
         <p class="small" id="mode-note" style="margin:12px 0 0"></p>
+      </section>
+
+      <section class="sec" id="combo-sec">
+        <div class="sec-h"><h2>Every combo</h2><button class="q" data-c="combos" aria-label="Explain the combos table">?</button><span class="spacer"></span><span class="small">Tap a row to load it</span></div>
+        <p class="small" style="margin:-6px 0 12px;max-width:80ch">Each strategy on each stock with $25k, on real option prices and on the 2016–26 model. Test Sharpe is the period the rules weren't picked on.</p>
+        <div class="tbl-wrap"><table class="combos" id="combos"></table></div>
       </section>
 
       <section class="sec" id="best-sec">
@@ -519,8 +530,8 @@ function readColors() {
   const cs = getComputedStyle(root), g = (v) => cs.getPropertyValue(v).trim();
   return {
     accent: g("--accent"), up: g("--up"), down: g("--down"), upInk: g("--up-ink"), downInk: g("--down-ink"),
-    bot: g("--cmp-bot"), tbill: g("--cmp-tbill"), best: g("--cmp-best"),
-    held: Object.fromEntries(["NVDA", "AMZN", "WMT", "JNJ", "XOM"].map((t) => [t, g("--held-" + t)])),
+    bot: g("--cmp-bot"), tbill: g("--cmp-tbill"), best: g("--cmp-best"), basic: g("--cmp-basic"),
+    held: Object.fromEntries(["NVDA", "AMZN"].map((t) => [t, g("--held-" + t)])),
     put: g("--st-put"), call: g("--st-call"), stuck: g("--st-stuck"), cash: g("--st-cash"),
     ink: g("--ink"), ink2: g("--ink-2"), muted: g("--muted"), line: g("--line"), line2: g("--line-2"), bg: g("--bg"), panel: g("--panel"),
     good: g("--good"), warn: g("--warn"), serious: g("--serious"), critical: g("--critical"),
@@ -696,14 +707,23 @@ const CONCEPTS = {
     w: "In 2024 to 2026 the bot's rules won 94% of trades. The average win was $59 and the worst trade lost $1,586.", x: "", r: ["worstmonth", "attribution"] },
   tickers: { g: "The wheel", t: "Which stock to wheel", s: "Same rules, very different results on each stock.",
     p: ["The toggle runs the same rules on a different stock, using that stock's own real option prices and measured pricing. It answers whether the wheel itself is any good, or whether it only worked because NVDA went up 10×.",
-        "A fixed \"10% below\" strike means very different risk on each stock. NVDA swings about 45% a year, so 10% below is a 0.07 to 0.10 delta. A calm stock like JNJ swings far less, so 10% below is a tiny delta: almost no premium and almost never assigned. Choosing strikes by delta keeps the risk comparable across stocks."],
+        "A fixed \"10% below\" strike means very different risk on each stock. NVDA swings about 45% a year, so 10% below is a 0.07 to 0.10 delta. A calmer stock swings far less, so 10% below is a tiny delta: almost no premium and almost never assigned. Choosing strikes by delta keeps the risk comparable across stocks."],
     w: "Every stock here fits a $25k account at today's price. When a stock traded higher in the past, the lab caps the strike at what $25k covers, exactly like the bot does.",
-    x: "Dividends paid on shares you hold after assignment aren't counted, which slightly understates the steady dividend payers like JNJ, XOM and WMT.", r: ["delta", "vrp", "benchmark"] },
+    x: "Dividends paid on shares you hold after assignment aren't counted. Neither NVDA nor AMZN pays a meaningful dividend, so it hardly matters here.", r: ["delta", "vrp", "benchmark"] },
   best: { g: "Testing honestly", t: "How the best combination was picked", s: "Every combination, scored for Sharpe and return, chosen from a plateau.",
     p: ["For each stock, the search runs about 30,000 rule combinations: 10 strike choices, 6 expiries, 4 take-profit levels, 3 loss rules, 7 covered-call rules, earnings on or off, and the pricey-options filter on or off (real prices only).",
         "Each combination gets a score: its average percentile rank on Sharpe and on yearly return, on real prices and on the model. Then each combination's score is replaced by the median of itself and its neighbors (one notch different on strike, expiry, take-profit or loss rule). The best is the one with the best neighborhood, so a single lucky setting can't win. It also needs at least 30 trades in the real window and 8%+ a year on real prices, the project's goal. Without that floor, the score picks rules on calm stocks that barely take risk and earn little more than T-bills."],
     w: "After that many tries, some combination will look great by chance. The luck check compares the pick with the bot's rules and asks whether its edge beats what luck could produce after ~30,000 tries. Usually it doesn't on 2.3 years of data, which is why the next step is a forward test, not a switch.",
     x: "The red line is the best combination for the stock you have selected, on the prices you're viewing.", r: ["tries", "plateau", "oos"] },
+  basicwheel: { g: "The wheel", t: "The basic wheel", s: "The textbook version, with none of the bot's extra rules.",
+    p: ["Sell a 0.30-delta put about a month out and hold it to expiry. If you're assigned, sell covered calls at or above what you paid for the shares, and hold those to expiry too. Then repeat. No early profit-taking, no stop-losses, no filters.",
+        "It's a fixed, textbook rule set that wasn't found by searching, so it doesn't carry the luck penalty a searched \"best\" combo does. That makes it a fair yardstick for whether the extra rules add anything."],
+    w: "Versions differ by source; this one uses the most common choices (about 0.30 delta and 30 days).", x: "", r: ["wheel", "best", "tries"] },
+  combos: { g: "Testing honestly", t: "The combos table", s: "Every strategy on every stock, side by side.",
+    p: ["Each row is one strategy (the bot's rules, the basic wheel, or the searched ★ best combo) on one stock, plus just holding that stock. Real prices cover June 2024 to now; the model covers 2016 to now.",
+        "Test Sharpe is measured only on the later part of each period (from July 2025 on real prices, from 2022 in the model). The ★ best combos were picked using the full history, so for those it's a weaker check than for the bot's rules and the basic wheel, which were fixed in advance.",
+        "★ Best overall is the strategy with the best average rank on Sharpe and yearly return, on real prices and the model."],
+    w: "Cash / mo is premium kept plus interest on idle cash, on real prices with $25k.", x: "", r: ["best", "basicwheel", "oos"] },
   income: { g: "Reading results", t: "Cash income per month", s: "The extra cash the $25k produces.",
     p: ["Option income is the premium you keep: the full premium when an option expires or gets assigned, or the net when you buy it back early. Interest is what the idle cash earned in T-bills. Together they're the cash the account throws off, averaged per month.",
         "It's the number that matches the goal of selling options for extra cash. Compare it with T-bills alone: $25k at about 4% earns roughly $85 a month with no risk."],
@@ -723,7 +743,7 @@ const CONCEPTS = {
     w: "Alpha vs the stock you're wheeling is the one to watch: it asks whether the wheel beat simply holding a smaller amount of that stock. Low beta plus big alpha against some other benchmark usually means the wrong benchmark, not skill.",
     x: "The t number ignores how many settings you've tried. After many tries, trust the luck check instead. Option returns are lopsided, so treat t as a rough guide.", r: ["beta", "tries", "sharpe"] },
   benchmark: { g: "Reading results", t: "Benchmarks", s: "What simple alternatives would have done.",
-    p: ["The same $25k simply held in each stock (NVDA, AMZN, WMT, JNJ, XOM), or left in T-bills. A strategy is only worth running if it beats these after accounting for risk.",
+    p: ["The same $25k simply held in each stock (NVDA, AMZN), or left in T-bills. A strategy is only worth running if it beats these after accounting for risk.",
         "Turn any of them on with the pills above the chart. The comparison table lists every line that's on, with its % difference from the one you picked."],
     w: "A benchmark never changes your own numbers, only the comparison. Choosing one because it makes your results look good is benchmark-shopping.", x: "", r: ["tbills", "sharpe", "beta"] },
   compare: { g: "Reading results", t: "The comparison table", s: "Every line that's on, side by side.",
@@ -812,6 +832,7 @@ const NB = [
 ];
 const WATCH = [
   { n: "Bot's rules", d: "What's running now", over: {} },
+  { n: "Basic wheel", d: "Textbook: 0.30Δ, 30d, hold", basic: true },
   { n: "Next up", d: "0.20 delta, 45 days", over: { put: { method: "delta", delta: 0.20 }, dte: 45 } },
   { n: "Longer expiries", d: "45 days", over: { dte: 45 } },
   { n: "Strikes by delta", d: "0.20 delta, 30 days", over: { put: { method: "delta", delta: 0.20 }, dte: 30 } },
@@ -854,6 +875,8 @@ function changedLevers(cfg, mode) {
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
 const isBotNow = () => changedLevers(st.cfg, st.mode).length === 0;
+const basicRules = (tk) => { const c = clone(E.BASIC_RULES), M = D.tickers[tk].model; return Object.assign(c, { putMult: M.putMult, callMult: M.callMult, earnPut: M.earnPut, earnCall: M.earnCall, halfSpread: st.cfg.halfSpread }); };
+const isBasicNow = () => sameRules(st.cfg, basicRules(st.ticker));
 const bestFor = (tk) => (window.LAB_BEST && window.LAB_BEST.tickers && window.LAB_BEST.tickers[tk]) || null;
 const sameRules = (a, b) => JSON.stringify(relevant(a, st.mode)) === JSON.stringify(relevant(b, st.mode));
 const isBestNow = () => { const B = bestFor(st.ticker); return !!B && sameRules(st.cfg, Object.assign(clone(B.best.cfg), { putMult: st.cfg.putMult, callMult: st.cfg.callMult, earnPut: st.cfg.earnPut, earnCall: st.cfg.earnCall })); };
@@ -888,7 +911,8 @@ function render() {
   let k0 = 0;
   if (days) { const lim = D.day[run.i0 + end] - days; while (k0 < end && D.day[run.i0 + k0] < lim) k0++; }
   const Bst = bestFor(tk), bestRes = Bst ? evaluate(Object.assign(clone(Bst.best.cfg), { halfSpread: st.cfg.halfSpread }), mode) : null;
-  view = { res, base, end, k0, isBot: isBotNow(), bestRes, isBest: isBestNow() };
+  const basicRes = evaluate(basicRules(tk), mode);
+  view = { res, base, end, k0, isBot: isBotNow(), bestRes, isBest: isBestNow(), basicRes, isBasic: isBasicNow() };
   noteTry();
   C = readColors();
   view.lines = buildLines();
@@ -907,6 +931,7 @@ function render() {
   renderRangeBar(); renderCompare(null);
   renderCharts();
   renderScore();
+  renderCombos();
   renderBest(tk);
   renderStats(m, mb, mu, stats, capU, ev, tk);
   $("#stats-when").textContent = `${fmtDate(D.dates[run.i0])} to ${fmtDate(D.dates[run.i0 + end])}`;
@@ -928,6 +953,62 @@ function describe(c) {
     : c.call.method === "delta" ? `at ${c.call.delta.toFixed(2)} delta` : `above cost, switching to ${c.call.delta.toFixed(2)} delta when ${Math.round(c.call.under * 100)}% underwater`;
   return `Sell puts ${put}, ${c.dte}+ days out. ${c.tp == null ? "Hold to expiry" : `Take profit at ${Math.round(c.tp * 100)}%`}, ${c.loss == null ? "never cut losses" : `cut losses at ${c.loss}× the credit`}. ` +
     `Covered calls ${call}. ${c.skipEarnings ? "Skip expiries that cross earnings" : "Sell through earnings"}${c.volFilter ? `, and only sell when options are priced at least ${c.volFilter}× the stock's recent moves` : ""}.`;
+}
+// Every strategy on every stock, with the numbers that back each one up.
+const STRATS = [["bot", "Bot's rules"], ["basic", "Basic wheel"], ["best", "★ Best combo"]];
+function comboCfg(kind, tk) {
+  if (kind === "bot") return Object.assign(botRules(tk), { halfSpread: st.cfg.halfSpread });
+  if (kind === "basic") return basicRules(tk);
+  const B = bestFor(tk); return B ? Object.assign(clone(B.best.cfg), { halfSpread: st.cfg.halfSpread }) : null;
+}
+function comboStats(curve, res, mode) {
+  const run = res.run, sp = E.splitIndex(D, run), last = run.len - 1;
+  const f = E.metrics(D, run, curve, res.bench.tbill, 0, last), t = E.metrics(D, run, curve, res.bench.tbill, sp, last);
+  return { cagr: f.cagr, sh: f.sharpe, dd: f.maxDD, tSh: t.sharpe, years: f.years };
+}
+function renderCombos() {
+  const t = $("#combos"); t.innerHTML = "";
+  const tickers = L.tickerList.map((x) => x.sym), rows = [];
+  for (const tk of tickers) {
+    if (!D.tickers[tk]) { rows.push({ tk, loading: true }); continue; }
+    for (const [kind, label] of STRATS) {
+      const cfg = comboCfg(kind, tk); if (!cfg) continue;
+      const rr = evaluate(cfg, "real", tk), rm = evaluate(cfg, "model", tk);
+      const real = comboStats(rr.run.eq, rr, "real"), model = comboStats(rm.run.eq, rm, "model");
+      real.cash = (rr.run.cashPremium + rr.run.interest) / (real.years * 12);
+      rows.push({ tk, kind, label, cfg, real, model });
+    }
+    const rr = evaluate(botRules(tk), "real", tk), rm = evaluate(botRules(tk), "model", tk);
+    rows.push({ tk, kind: "held", label: "Just hold", real: comboStats(rr.bench.stock, rr), model: comboStats(rm.bench.stock, rm) });
+  }
+  // Best overall: average percentile rank on Sharpe and yearly return, real and model (same idea as the search).
+  const strat = rows.filter((r) => r.real && r.kind !== "held");
+  const rank = (get) => { const v = strat.map(get), sorted = v.slice().sort((a, b) => a - b); return v.map((x) => sorted.indexOf(x) / Math.max(1, v.length - 1)); };
+  const parts = [rank((r) => r.real.sh), rank((r) => r.real.cagr), rank((r) => r.model.sh), rank((r) => r.model.cagr)];
+  strat.forEach((r, i) => (r.score = parts.reduce((s, p) => s + p[i], 0) / 4));
+  const top = strat.reduce((a, r) => (!a || r.score > a.score ? r : a), null);
+  const H = (x, attrs = {}) => el("th", attrs, x);
+  t.append(el("thead", {},
+    el("tr", {}, H(""), H("Real prices · Jun 2024 to now", { class: "grp", colspan: "5" }), H("Model · 2016 to now", { class: "grp", colspan: "4" })),
+    el("tr", {}, ...["Combo", "Per year", "Sharpe", "Worst drop", "Cash / mo", "Test Sharpe", "Per year", "Sharpe", "Worst drop", "Test Sharpe"].map((h) => H(h)))));
+  const tb = el("tbody");
+  let prevTk = null;
+  for (const r of rows) {
+    if (r.loading) { tb.append(el("tr", {}, el("td", { colspan: "10", class: "small", text: `Loading ${r.tk}…` }))); continue; }
+    const cur = r.kind !== "held" && r.tk === st.ticker && sameRules(st.cfg, r.cfg);
+    const name = el("td", {}, el("b", { text: r.tk + " " }), r.label);
+    if (r === top) name.append(el("span", { class: "badge", text: "★ Best overall" }));
+    const cls = [cur ? "cur" : "", r.kind === "held" ? "held" : "", prevTk && prevTk !== r.tk ? "sep" : ""].join(" ").trim();
+    prevTk = r.tk;
+    const onclick = r.kind === "held"
+      ? async () => { if (st.ticker !== r.tk) await setTicker(r.tk); st.focus = "held:" + r.tk; st.vis["held:" + r.tk] = true; render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+      : async () => { if (st.ticker !== r.tk) await setTicker(r.tk); st.cfg = clone(r.cfg); st.focus = "main"; render(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+    tb.append(el("tr", { class: cls, onclick, title: r.kind === "held" ? `Show ${r.tk} held` : `Load ${r.label} on ${r.tk}` }, name,
+      el("td", { text: pct(r.real.cagr, 1, true) }), el("td", { text: num(r.real.sh) }), el("td", { text: pct(r.real.dd) }),
+      el("td", { text: r.real.cash != null ? money(r.real.cash) : "—" }), el("td", { text: num(r.real.tSh) }),
+      el("td", { text: pct(r.model.cagr, 1, true) }), el("td", { text: num(r.model.sh) }), el("td", { text: pct(r.model.dd) }), el("td", { text: num(r.model.tSh) })));
+  }
+  t.append(tb);
 }
 function renderBest(tk) {
   const B = bestFor(tk), body = $("#best-body"); body.innerHTML = "";
@@ -968,17 +1049,18 @@ function statsUpTo(run, end) {
 // Every line the chart can show. Strategies are solid, buy-and-hold is
 // dashed, T-bills dotted. The main line is your rules (or the bot's).
 function buildLines() {
-  const { res, base, isBot, bestRes, isBest, end } = view, eq = res.run.eq;
+  const { res, base, isBot, bestRes, isBest, basicRes, isBasic, end } = view, eq = res.run.eq;
   const mainUp = eq[end] >= eq[view.k0];
-  const L = [{ key: "main", label: isBot ? "Bot's rules" : isBest ? "★ Best combo (yours)" : "Your rules", kind: "strategy", curve: eq,
-    color: isBot ? C.bot : isBest ? C.best : mainUp ? C.up : C.down, dash: null, main: true }];
+  const L = [{ key: "main", label: isBot ? "Bot's rules" : isBest ? "★ Best combo (yours)" : isBasic ? "Basic wheel (yours)" : "Your rules", kind: "strategy", curve: eq,
+    color: isBot ? C.bot : isBest ? C.best : isBasic ? C.basic : mainUp ? C.up : C.down, dash: null, main: true }];
   if (bestRes && !isBest) L.push({ key: "best", label: "★ Best combo", kind: "strategy", curve: bestRes.run.eq, color: C.best, dash: null });
   if (!isBot) L.push({ key: "bot", label: "Bot's rules", kind: "strategy", curve: base.run.eq, color: C.bot, dash: null });
+  if (!isBasic) L.push({ key: "basic", label: "Basic wheel", kind: "strategy", curve: basicRes.run.eq, color: C.basic, dash: null });
   for (const t of Object.keys(res.bench.held)) L.push({ key: "held:" + t, label: `${t} held`, kind: "held", curve: res.bench.held[t], color: C.held[t] || C.muted, dash: [7, 4] });
   L.push({ key: "tbill", label: "T-bills", kind: "tbill", curve: res.bench.tbill, color: C.tbill, dash: [1, 4] });
   return L;
 }
-const defaultOn = (key) => key === "main" || key === "best" || key === "bot" || key === "tbill" || key === "held:" + st.ticker;
+const defaultOn = (key) => key === "main" || key === "best" || key === "bot" || key === "basic" || key === "tbill" || key === "held:" + st.ticker;
 const isOn = (key) => key === st.focus || (st.vis[key] ?? defaultOn(key));
 function renderFocusPicker() {
   const sel = $("#focus"), lines = view.lines, sig = lines.map((l) => l.key + l.label).join("|");
@@ -1237,7 +1319,7 @@ function sbar(v, scale) {
 }
 function renderStress(blindNow) {
   const { res, base, isBot } = view, t = $("#stress"); t.innerHTML = "";
-  const cols = [[isBot ? "Bot" : "Yours", res.run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(view.bestRes && !view.isBest ? [["★ Best", view.bestRes.run.eq]] : []), [`${st.ticker} held`, res.bench.stock]];
+  const cols = [[isBot ? "Bot" : "Yours", res.run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(view.bestRes && !view.isBest ? [["★ Best", view.bestRes.run.eq]] : []), ...(view.isBasic ? [] : [["Basic", view.basicRes.run.eq]]), [`${st.ticker} held`, res.bench.stock]];
   t.append(el("thead", {}, el("tr", {}, el("th", { text: "Period" }), ...cols.map(([h]) => el("th", { text: h })))));
   const tb = el("tbody"), splitIso = E.WINDOWS[st.mode].split;
   for (const [name, a, b] of E.REGIMES[st.mode]) {
@@ -1345,7 +1427,7 @@ function renderAttribution() {
 }
 function renderYearly() {
   const { res, base, end, isBot } = view, run = res.run, t = $("#yearly"); t.innerHTML = "";
-  const cols = [[isBot ? "Bot" : "Yours", run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(view.bestRes && !view.isBest ? [["★ Best", view.bestRes.run.eq]] : []), [`${st.ticker} held`, res.bench.stock]];
+  const cols = [[isBot ? "Bot" : "Yours", run.eq], ...(isBot ? [] : [["Bot", base.run.eq]]), ...(view.bestRes && !view.isBest ? [["★ Best", view.bestRes.run.eq]] : []), ...(view.isBasic ? [] : [["Basic", view.basicRes.run.eq]]), [`${st.ticker} held`, res.bench.stock]];
   t.append(el("thead", {}, el("tr", {}, el("th", { text: "Year" }), ...cols.map(([h]) => el("th", { text: h })))));
   const tb = el("tbody");
   let start = 0;
@@ -1514,13 +1596,13 @@ function renderWatch() {
   const curKey = JSON.stringify(relevant(st.cfg, st.mode)), B = bestFor(st.ticker);
   const items = (B ? [{ n: "★ Best combo", d: `Top of ${B.nConfigs.toLocaleString("en-US")} tested`, cfg: B.best.cfg, best: true }] : []).concat(WATCH);
   for (const w of items) {
-    const cfg = w.cfg ? Object.assign(clone(w.cfg), { halfSpread: st.cfg.halfSpread }) : applyOver(w.over), unavailable = w.realOnly && st.mode !== "real";
+    const cfg = w.basic ? basicRules(st.ticker) : w.cfg ? Object.assign(clone(w.cfg), { halfSpread: st.cfg.halfSpread }) : applyOver(w.over), unavailable = w.realOnly && st.mode !== "real";
     const on = JSON.stringify(relevant(cfg, st.mode)) === curKey;
     const b = el("button", { class: on ? "on" : "", onclick: () => { st.cfg = cfg; if (unavailable) st.mode = "real"; render(); } },
       el("div", {}, el("div", { class: "nm", text: w.n }), el("div", { class: "ds", text: w.d })));
     if (unavailable) { b.append(el("span"), el("span", { class: "small", style: "justify-self:end", text: "Real only" })); host.append(b); continue; }
     const r = evaluate(cfg, st.mode), end = st.blind && !st.revealed ? E.splitIndex(D, r.run) - 1 : r.run.len - 1, m = metricsOf(r, r.run.eq, 0, end);
-    const up = m.cagr >= 0, col = w.best ? C.best : w.n === "Bot's rules" ? C.bot : up ? C.up : C.down, svg = svgEl("svg", { viewBox: "0 0 64 26", "aria-hidden": "true" });
+    const up = m.cagr >= 0, col = w.best ? C.best : w.basic ? C.basic : w.n === "Bot's rules" ? C.bot : up ? C.up : C.down, svg = svgEl("svg", { viewBox: "0 0 64 26", "aria-hidden": "true" });
     const step = Math.max(1, Math.floor(end / 48)), pts = [];
     let lo = Infinity, hi = -Infinity;
     for (let k = 0; k <= end; k += step) { lo = Math.min(lo, r.run.eq[k]); hi = Math.max(hi, r.run.eq[k]); }
@@ -1622,6 +1704,10 @@ $("#parity").textContent = `${nRef}/${nRef}`;
 buildTicket();
 renderConcepts();
 render();
+(async () => {
+  for (const { sym } of L.tickerList) if (!D.tickers[sym]) { try { await loadTicker(sym); } catch (e) { /* the table shows it as loading */ } }
+  if (st.tab === "backtest") render();
+})();
 function onTheme() { C = readColors(); if (st.tab === "backtest") render(); else if (st.tab === "log") renderLog(); }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
 new MutationObserver(onTheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });

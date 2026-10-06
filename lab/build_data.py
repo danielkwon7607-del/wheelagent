@@ -41,8 +41,7 @@ earnings = [d.isoformat() for d in w.earnings_days(START, date(2027, 1, 31))]
 # --- real option chains and bars, per underlying ---
 DATA = os.path.join(HERE, "..", "research", "data")
 # Stocks a $25k account can wheel.
-CACHES = {"NVDA": "opt_cache.pkl", "AMZN": "opt_cache_AMZN.pkl", "WMT": "opt_cache_WMT.pkl",
-          "JNJ": "opt_cache_JNJ.pkl", "XOM": "opt_cache_XOM.pkl"}
+CACHES = {"NVDA": "opt_cache.pkl", "AMZN": "opt_cache_AMZN.pkl"}
 CACHES = {k: v for k, v in CACHES.items() if os.path.exists(os.path.join(DATA, v))}
 
 

@@ -52,8 +52,10 @@ adding something means editing or replacing something — not appending.
   lab/dist/wheel-lab.html with data.js + engine.js as files). engine.js must
   match research/ on the original rules: run node lab/parity_test.js after
   any engine change. Tries start at 40 (the research grid + model runs).
-  Wheel tickers NVDA/AMZN/WMT/JNJ/XOM (all fit $25k; non-NVDA load lazily
-  from data_<TK>.js; strikes capped like the bot). Model IV
+  Wheel tickers NVDA and AMZN only (Daniel cut SPY/COST/JNJ/WMT/XOM); AMZN
+  loads from data_AMZN.js; strikes capped like the bot. "Basic wheel" =
+  E.BASIC_RULES (0.30 delta, 30d, hold, calls >= cost), the no-search
+  yardstick; the Combos table shows bot/basic/best x stock. Model IV
   uses measured skew curves; NVDA stays flat 1.13 for parity. lab/search.js
   (30,240 combos/ticker, ~2 min each) writes best.js: plateau pick, 30+
   trades, 8%/yr floor, design-only pick + luck check. Red line = that pick.

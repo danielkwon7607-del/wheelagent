@@ -1,11 +1,10 @@
-"""Download real option chains and daily bars for other underlyings (SPY, COST)
+"""Download real option chains and daily bars for other underlyings (e.g. AMZN)
 into research/data/opt_cache_<TICKER>.pkl, plus COST earnings dates.
 
 Same shape as the NVDA cache: {"contracts": {(expiry, kind): {strike: symbol}},
 "bars": {symbol: Series of closes}}. Friday expiries only, June 2024 on.
-SPY strikes are limited to multiples of $5 to keep the file small.
 
-Run: research/.venv/bin/python research/prefetch_ticker.py SPY COST
+Run: research/.venv/bin/python research/prefetch_ticker.py AMZN
 """
 import os
 import pickle
@@ -103,7 +102,7 @@ def earnings(ticker):
 
 
 if __name__ == "__main__":
-    for t in sys.argv[1:] or ["SPY", "COST"]:
+    for t in sys.argv[1:] or ["AMZN"]:
         fetch(t)
         if t in CIK:
             earnings(t)
