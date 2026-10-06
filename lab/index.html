@@ -34,6 +34,7 @@
   --cmp-best: #dc2626;
   --cmp-tbill: #c98500;
   --cmp-basic: #111316;
+  --cmp-yours: #0d9488;
   --held-NVDA: #1f6b2a;
   --held-AMZN: #7b61ff;
   --st-put: #1d8fa8;
@@ -55,7 +56,7 @@
     --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
     --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
     --cmp-bot: #3987e5; --cmp-tbill: #c98500;
-    --cmp-basic: #f3f4f6; --held-NVDA: #28713c; --held-AMZN: #9085e9;
+    --cmp-basic: #f3f4f6; --cmp-yours: #22a597; --held-NVDA: #28713c; --held-AMZN: #9085e9;
     --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
     --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -68,7 +69,7 @@
   --ink: #f3f4f6; --ink-2: #b4b9c0; --muted: #7d838c;
   --up: #14a823; --up-ink: #3fcf4c; --down: #e4507b; --down-ink: #f0719a;
   --cmp-bot: #3987e5; --cmp-tbill: #c98500;
-  --cmp-basic: #f3f4f6; --held-NVDA: #28713c; --held-AMZN: #9085e9;
+  --cmp-basic: #f3f4f6; --cmp-yours: #22a597; --held-NVDA: #28713c; --held-AMZN: #9085e9;
   --st-put: #2694ad; --st-call: #9085e9; --st-stuck: #e66767; --st-cash: #1e2125;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
   --go-bg: var(--up); --go-fg: #0b0c0e;
@@ -102,10 +103,13 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .q { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-2); background: transparent; color: var(--muted); font: 600 10.5px/1 var(--f-ui); cursor: pointer; padding: 0; flex: none; vertical-align: 1px; }
 .q:hover { color: var(--ink); border-color: var(--ink-2); }
 @media (max-width: 720px) { .top .chip.hide-s { display: none; } .top-in { gap: 18px; padding-inline: 16px; } }
+@media (max-width: 560px) { .top .right { display: none; } .nav { gap: 16px; overflow-x: auto; scrollbar-width: none; } .nav button { white-space: nowrap; flex: none; } }
+@media (max-width: 430px) { .mark-t { display: none; } }
 
 /* ---------- layout ---------- */
 .page { max-width: 1280px; margin: 0 auto; padding-inline: 24px; padding-block: 28px 64px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 48px; }
-main { min-width: 0; display: grid; gap: 0; align-content: start; }
+main { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; align-content: start; }
+main > div { min-width: 0; }
 aside.side { position: sticky; top: 84px; align-self: start; display: grid; gap: 18px; max-height: calc(100vh - 100px); overflow-y: auto; padding: 2px; scrollbar-width: thin; }
 @media (max-width: 1020px) {
   .page { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-inline: 16px; }
@@ -119,7 +123,7 @@ section.sec:first-child { border-top: 0; padding-top: 0; }
 
 /* ---------- hero ---------- */
 .hero { position: relative; }
-#dots { position: absolute; left: 42%; right: 0; top: -14px; height: 130px; pointer-events: none; z-index: 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%); mask-image: linear-gradient(90deg, transparent, #000 30%); }
+#dots { position: absolute; left: 42%; width: 58%; top: -14px; height: 130px; pointer-events: none; z-index: 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%); mask-image: linear-gradient(90deg, transparent, #000 30%); }
 .hero-txt { position: relative; z-index: 1; display: grid; gap: 2px; }
 .hero .who { font-size: 14px; font-weight: 600; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
 .hero .val { font-size: clamp(36px, 6vw, 52px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.08; }
@@ -310,6 +314,35 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
 .gloss b { font-weight: 600; font-size: 15px; }
 .gloss span { color: var(--muted); font-size: 13px; line-height: 1.4; }
 
+/* ---------- stress test ---------- */
+.key { display: inline-flex; align-items: center; gap: 8px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.st-prog { height: 3px; border-radius: 2px; background: var(--sunken-2); overflow: hidden; margin-top: 12px; }
+.st-prog i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+.st-score td { vertical-align: top; white-space: normal; }
+.st-score th, #st-cost-tbl th, #st-shock-tbl th { white-space: normal; vertical-align: bottom; }
+.st-score tr.held td { color: var(--muted); }
+.st-cell { display: inline-grid; gap: 3px; justify-items: end; }
+.st-cell .s { font-size: 12px; color: var(--muted); max-width: 150px; text-align: right; line-height: 1.35; }
+.st-cell .pill { padding: 3px 9px; font-size: 12.5px; }
+.st-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 6px; }
+.st-readout { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 22px; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.st-readout b { color: var(--ink); font-weight: 600; }
+.st-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.st-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.st-card h3 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.st-cap { margin: 0; font-size: 14px; color: var(--ink-2); }
+.st-cap b { color: var(--ink); font-weight: 600; }
+.st-note { margin: 12px 0 0; font-size: 13px; color: var(--muted); max-width: 84ch; line-height: 1.55; }
+.st-svg { display: block; max-width: 100%; height: auto; }
+.st-svg text { fill: var(--muted); font: 500 11px var(--f-ui); font-variant-numeric: tabular-nums; }
+.st-svg text.lbl { fill: var(--ink-2); font-weight: 600; font-size: 12px; }
+.checklist .ci { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.checklist .ci:last-child { border-bottom: 0; }
+.checklist .num { width: 24px; height: 24px; border-radius: 50%; background: var(--sunken-2); display: inline-flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.checklist b { font-weight: 600; font-size: 15px; }
+.checklist p { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; max-width: 78ch; }
+
 /* ---------- drawer ---------- */
 .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); z-index: 40; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); z-index: 41; background: var(--panel); border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgba(0, 0, 0, 0.18); padding: calc(env(safe-area-inset-top, 0px) + 22px) 26px calc(env(safe-area-inset-bottom, 0px) + 26px); overflow-y: auto; display: grid; gap: 14px; align-content: start; }
@@ -334,10 +367,11 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
   <div class="top-in">
     <div class="mark">
       <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8.5" fill="none" stroke="var(--accent)" stroke-width="2.6"/><circle cx="11" cy="11" r="2.6" fill="var(--ink)"/></svg>
-      Wheel Lab
+      <span class="mark-t">Wheel Lab</span>
     </div>
     <nav class="nav" role="tablist" aria-label="Views">
       <button role="tab" id="tab-backtest" aria-selected="true">Backtest</button>
+      <button role="tab" id="tab-stress" aria-selected="false">Stress test</button>
       <button role="tab" id="tab-log" aria-selected="false">Research</button>
       <button role="tab" id="tab-concepts" aria-selected="false">Learn</button>
     </nav>
@@ -444,6 +478,7 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
       </section>
     </div>
 
+    <div id="view-stress" hidden></div>
     <div id="view-log" hidden></div>
     <div id="view-concepts" hidden></div>
   </main>
@@ -519,6 +554,8 @@ textarea.copy { width: 100%; height: 100px; margin-top: 10px; background: var(--
 <script src="data.js"></script>
 <script src="best.js"></script>
 <script src="engine.js"></script>
+<script src="stresstests.js"></script>
+<script src="stress.js"></script>
 <script>
 (function () {
 "use strict";
@@ -530,7 +567,7 @@ function readColors() {
   const cs = getComputedStyle(root), g = (v) => cs.getPropertyValue(v).trim();
   return {
     accent: g("--accent"), up: g("--up"), down: g("--down"), upInk: g("--up-ink"), downInk: g("--down-ink"),
-    bot: g("--cmp-bot"), tbill: g("--cmp-tbill"), best: g("--cmp-best"), basic: g("--cmp-basic"),
+    bot: g("--cmp-bot"), tbill: g("--cmp-tbill"), best: g("--cmp-best"), basic: g("--cmp-basic"), yours: g("--cmp-yours"),
     held: Object.fromEntries(["NVDA", "AMZN"].map((t) => [t, g("--held-" + t)])),
     put: g("--st-put"), call: g("--st-call"), stuck: g("--st-stuck"), cash: g("--st-cash"),
     ink: g("--ink"), ink2: g("--ink-2"), muted: g("--muted"), line: g("--line"), line2: g("--line-2"), bg: g("--bg"), panel: g("--panel"),
@@ -782,6 +819,34 @@ const CONCEPTS = {
     w: "Ignoring costs makes frequent trading look better than it is.", x: "", r: ["tp"] },
   sample: { g: "Testing honestly", t: "Sample size", s: "How much evidence a result rests on.",
     p: ["2.3 years and 50 to 100 trades is a small sample. A few lucky or unlucky trades can swing the results. Fewer trades means less evidence."], w: "", x: "", r: ["oos", "realvsmodel"] },
+  stressscore: { g: "Stress testing", t: "The stress scorecard", s: "Each strategy on all three stress tests, in one table.",
+    p: ["Cost room: how many times wider than today's spreads trading could get before the strategy stops beating T-bills. Luck: whether its edge over the bot's rules is bigger than what searching produces by chance. Gap and crash: how much lower the account ends a month after the shock than it would have without it, typical case, plus one bad case in ten.",
+        "The bot's rules and the basic wheel weren't found by searching, so they don't need a luck test. The ★ combo was, so it does."],
+    w: "Change the stock or the rules in the panel and every test reruns. Costs follow the price source you've picked; the shock tests always use the 2016 to 2026 model.", x: "", r: ["coststress", "shuffle", "shocks"] },
+  coststress: { g: "Stress testing", t: "Cost stress test", s: "Make every trade more expensive until the strategy stops paying.",
+    p: ["Every option you sell or buy back gives up part of the bid/ask gap. The test reruns each strategy with that cost raised step by step, from 0% to 50% of the option price, and finds where it drops below the 8% goal and below T-bills.",
+        "Then it compares that break-even with what today's quotes say each strategy would actually pay (the dots on the chart). Cheap far-out options cost more per dollar, so the bot's rules pay more than rules that sell richer options."],
+    w: "With one contract on $25k, the options are a small slice of the money, so even big spreads move the yearly return only a few points. Most of the return comes from holding assigned shares and T-bill interest. The Cash / month view shows how much of the option income spreads eat.",
+    x: "Spreads widen in sell-offs, when a wheel trades the most. The wild-days view widens only those days. Paper fills are also friendlier than real ones.", r: ["spread", "income", "shocks"] },
+  shuffle: { g: "Stress testing", t: "Fake histories (shuffled worlds)", s: "Run the whole search on made-up data with no edge, many times.",
+    p: ["Each fake history is built from the stock's own daily moves, cut into blocks of about 20 days and shuffled, then adjusted so the stock earns only the T-bill rate. Options are priced fairly (implied vol equals realized vol) with no spread, so nothing has an edge there.",
+        "The full search runs on each one. The biggest edge over the bot's rules it finds is pure luck. Do that hundreds of times and you get the range of edges luck produces. A real edge has to beat most of them."],
+    w: "This is the first check from the reel: resample in blocks, rerun the whole search, record the best. It needs model prices, because real option prices don't exist for a history that never happened.",
+    x: "It compares the ★ combo with the luckiest rule set in each fake history, which is strict. Passing means a lot; failing means \"not proven\", not \"fake\".", r: ["realitycheck", "tries", "overfit"] },
+  realitycheck: { g: "Stress testing", t: "Resampled history (Reality Check)", s: "Reshuffle the real results to see how big an edge luck makes.",
+    p: ["Take every rule set's real day-by-day results and remove each one's actual edge over the bot's rules, so nothing has an edge on average. Then resample the days in 20-day blocks, the same days for every rule set. The biggest edge in each resample is luck. Repeat a thousand times.",
+        "This is White's Reality Check (2000), the standard test for data snooping. Unlike the fake histories, it works on real option prices."],
+    w: "On 2.3 years of real prices luck alone produces very large edges, because short samples are noisy. That's the honest reason the next step is a forward test.", x: "", r: ["shuffle", "tries", "sample"] },
+  shocks: { g: "Stress testing", t: "Gap and crash tests", s: "Drop a disaster into real history at hundreds of dates.",
+    p: ["Each scenario (a −20% overnight gap, a −35% month, a year-long bear, a +25% gap up) is added on top of the stock's real price path at a date, every two weeks from 2016 to 2026. The strategy keeps running by its rules. The test measures how much lower it ends a month after the shock than it would have without it, its worst point in the next year, and how long it took to get back to even.",
+        "Testing hundreds of dates means the shock lands while the strategy holds cash, a put, or shares, so you see the typical case and the bad ones."],
+    w: "Uses model prices: options are priced from the shocked path's own volatility, so they get pricier after the shock, as real ones would.",
+    x: "The model doesn't know a gap is coming, so it doesn't charge the extra premium real options carry before earnings. Real fills in a crash would also be worse than the model's.", r: ["coststress", "maxdd", "assignment"] },
+  forwardtest: { g: "Stress testing", t: "Forward test", s: "Run the rules on new data, from today on.",
+    p: ["Every backtest reuses the history the rules were chosen on. A forward test runs the rules (on paper) from now on, so the data is truly new. It's the one test luck can't game.",
+        "It needs a second paper account so the ★ combo can run next to the current bot, and rules for judging it that are decided before it starts."],
+    w: "Alpaca's paper fills are friendlier than real ones, so the plan is to log the bid and ask at every fill and re-cost the trades at real spreads.",
+    x: "A few months is still a small sample. Decide in advance what result would change your mind.", r: ["shuffle", "oos", "sample"] },
   parity: { g: "Testing honestly", t: "Matches the research", s: "This page's numbers match the Python research.",
     p: ["The backtest engine on this page is checked against the Python research engine. On six test cases, return, Sharpe, worst drop and trade count all match."], w: "Newer settings (delta strikes, loss cuts, hybrid calls, the pricey-options filter, contract sizing) exist only in this engine.", x: "", r: ["realvsmodel"] },
 };
@@ -905,6 +970,10 @@ const RANGE_WORDS = { "1M": "Past month", "3M": "Past 3 months", "6M": "Past 6 m
 // ======================= render =======================
 let charts = {}, view = null;
 function render() {
+  if (st.tab === "stress") { // the panel still drives the stock and rules; only the stress view redraws
+    noteTry(); C = readColors(); syncTicket(); renderWatch(); $("#tries").textContent = `${triesCount()} tries`;
+    renderStressTab(); return;
+  }
   const mode = st.mode, res = evaluate(st.cfg, mode), base = evaluate(botRules(st.ticker), mode), tk = st.ticker;
   const run = res.run, split = E.splitIndex(D, run), blindNow = st.blind && !st.revealed, end = blindNow ? split - 1 : run.len - 1;
   const days = RANGES[mode].find(([k]) => k === st.range[mode])?.[1] ?? null;
@@ -1529,7 +1598,7 @@ function buildTicket() {
   $("#mode-real").onclick = () => setMode("real");
   $("#mode-model").onclick = () => setMode("model");
   $("#copy").onclick = copySettings;
-  for (const [id, v] of [["tab-backtest", "backtest"], ["tab-log", "log"], ["tab-concepts", "concepts"]]) $("#" + id).onclick = () => setTab(v);
+  for (const [id, v] of [["tab-backtest", "backtest"], ["tab-stress", "stress"], ["tab-log", "log"], ["tab-concepts", "concepts"]]) $("#" + id).onclick = () => setTab(v);
 }
 function fillSegTrace() {
   const host = $("#trace-seg"); host.innerHTML = "";
@@ -1615,11 +1684,439 @@ function renderWatch() {
   $("#wl-sub").textContent = `Ideas from the research · ${st.ticker} · ${st.mode === "real" ? "Real prices" : "Model 2016–26"}`;
 }
 
+// ======================= stress test =======================
+// Three ways a backtest can fool you, one test each: costs, luck, shocks.
+// Costs and shocks run here (in slices, so the page stays responsive); the
+// luck tests are precomputed by lab/stress_null.js into stress.js.
+const STRESS = window.LAB_STRESS || null, SX = window.WheelStress;
+const ST = { lever: "spread", metric: "cagr", shock: "gap20", token: 0, built: false };
+const stPay = new Map(), stCost = new Map(), stShock = new Map(), stBase = new Map();
+const ckey = (tk, cfg) => tk + "|" + JSON.stringify(cfg);
+const shockKey = (tk, id, cfg) => id + "|" + ckey(tk, cfg);
+const GOAL = 0.08;
+// Same rules, ignoring the spread lever (the cost test sweeps it anyway).
+const sameRulesAnySpread = (a, b) => { const x = relevant(a, st.mode), y = relevant(b, st.mode); delete x.halfSpread; delete y.halfSpread; return JSON.stringify(x) === JSON.stringify(y); };
+function stressStrategies() {
+  const tk = st.ticker, out = [
+    { key: "bot", label: "Bot's rules", color: C.bot, cfg: Object.assign(botRules(tk), { halfSpread: 0.03 }) },
+    { key: "basic", label: "Basic wheel", color: C.basic, cfg: Object.assign(basicRules(tk), { halfSpread: 0.03 }) },
+  ];
+  const B = bestFor(tk);
+  if (B) out.push({ key: "best", label: "★ Best combo", color: C.best, cfg: clone(B.best.cfg), searched: true });
+  if (!out.some((s) => sameRulesAnySpread(s.cfg, st.cfg))) out.push({ key: "yours", label: "Your rules", color: C.yours, cfg: clone(st.cfg), yours: true });
+  return out;
+}
+function tbillCagr(tk, mode) { const r = evaluate(botRules(tk), mode, tk); return metricsOf(r, r.bench.tbill, 0, r.run.len - 1).cagr; }
+function tbillIncome(tk) { const r = evaluate(botRules(tk), "real", tk), c = r.bench.tbill, m = metricsOf(r, c, 0, r.run.len - 1); return (c[c.length - 1] - c[0]) / (m.years * 12); }
+
+// ---------- the work queue ----------
+function stressJobs(tk, mode, strats) {
+  const buckets = STRESS && STRESS.spreads && STRESS.spreads[tk] ? STRESS.spreads[tk].buckets : null;
+  const cost = [], shock = [];
+  for (const s of strats) {
+    const pk = ckey(tk, s.cfg);
+    if (!stPay.has(pk)) cost.push(() => {
+      const run = E.simulate(D, s.cfg, "real", tk), b = E.benchmarks(D, run.i0, run.i1, tk), m = E.metrics(D, run, run.eq, b.tbill);
+      stPay.set(pk, { ...(buckets ? SX.effectiveSpread(run, buckets) : { pct: NaN, dollars: NaN }), years: m.years, trades: run.trades.length });
+    });
+    for (const lever of ["spread", "wild"]) {
+      const k = [mode, lever, pk].join("|");
+      if (stCost.has(k)) continue;
+      const steps = lever === "spread" ? SX.SPREAD_STEPS : SX.WILD_STEPS, pts = [];
+      steps.forEach((x, j) => cost.push(() => {
+        const pay = stPay.get(pk), base = pay && Number.isFinite(pay.pct) ? Math.round(pay.pct * 1000) / 1000 : 0.03;
+        pts.push(SX.costSweep(E, D, s.cfg, mode, tk, lever, [x], base)[0]);
+        if (j === steps.length - 1) stCost.set(k, pts);
+      }));
+    }
+  }
+  for (const id of new Set([ST.shock, "gap20", "crash", ...SX.SHOCKS.map((x) => x.id)])) {
+    const sh = SX.SHOCKS.find((x) => x.id === id), need = strats.filter((s) => !stShock.has(shockKey(tk, id, s.cfg))), heldK = id + "|" + tk + "|held";
+    if (!need.length && stShock.has(heldK)) continue;
+    const { dates, last } = SX.shockDates(E, D, sh), rows = {}, list = need.map((s) => ({ key: ckey(tk, s.cfg), cfg: s.cfg }));
+    dates.forEach((d, j) => shock.push(() => {
+      const r = SX.shockAt(E, D, tk, sh, d, last, list, stBase);
+      for (const [k, v] of Object.entries(r)) (rows[k] ||= []).push({ ...v, d });
+      if (j === dates.length - 1) {
+        for (const s of need) stShock.set(shockKey(tk, id, s.cfg), rows[ckey(tk, s.cfg)]);
+        stShock.set(heldK, rows.held);
+        return true; // a scenario finished: worth a redraw
+      }
+    }));
+  }
+  return { cost, shock };
+}
+async function runStress() {
+  const token = ++ST.token, tk = st.ticker, mode = st.mode, { cost, shock } = stressJobs(tk, mode, stressStrategies());
+  const total = cost.length + shock.length;
+  if (!total) { setStressProgress(null); return; }
+  if (stBase.size > 6000) stBase.clear();
+  let done = 0, t0 = performance.now();
+  const go = async (jobs, redraw) => {
+    for (const job of jobs) {
+      if (token !== ST.token) return false;
+      const finished = job(); done++;
+      if (finished && redraw && st.tab === "stress") renderStressTab(false);
+      if (performance.now() - t0 > 30) { setStressProgress(done / total); await new Promise((r) => setTimeout(r, 0)); t0 = performance.now(); }
+    }
+    return true;
+  };
+  setStressProgress(0);
+  if (!(await go(cost, false))) return;
+  if (st.tab === "stress") renderStressTab(false);
+  if (!(await go(shock, true))) return;
+  setStressProgress(null);
+  if (st.tab === "stress") renderStressTab(false);
+}
+function setStressProgress(p) {
+  const bar = $("#st-prog"); if (!bar) return;
+  bar.hidden = p == null;
+  if (p != null) { bar.firstChild.style.width = `${Math.round(p * 100)}%`; $("#st-prog-t").textContent = `Running the tests… ${Math.round(p * 100)}%`; }
+  $("#st-prog-t").hidden = p == null;
+}
+
+// ---------- layout ----------
+function buildStressSkeleton(box) {
+  ST.built = true;
+  const q = (c, label) => el("button", { class: "q", "data-c": c, "aria-label": "Explain " + label, text: "?" });
+  box.append(
+    el("section", { class: "sec" },
+      el("div", { class: "sec-h" }, el("h2", { text: "Stress test" }), el("span", { class: "small", id: "st-sub" })),
+      el("p", { class: "lead", text: "A backtest can look great and still be fooling you. Three checks, one for each way it can lie: are the trading costs realistic, could luck from searching explain the result, and how badly do gaps and crashes hurt? Pick the stock and rules in the panel on the right." }),
+      el("div", { class: "st-prog", id: "st-prog", hidden: "" }, el("i")), el("div", { class: "small", id: "st-prog-t", hidden: "", style: "margin-top:6px" }),
+      el("div", { class: "mini-h", style: "margin-top:18px" }, "Scorecard", q("stressscore", "the scorecard")),
+      el("div", { class: "tbl-wrap" }, el("table", { class: "st-score", id: "st-score" }))),
+    el("section", { class: "sec" },
+      el("div", { class: "sec-h" }, el("h2", { text: "1 · Trading costs" }), q("coststress", "the cost test")),
+      el("p", { class: "lead", id: "st-cost-lead" }),
+      el("div", { class: "st-toolbar" }, el("div", { class: "feed-tools", role: "group", "aria-label": "Which spreads to widen", id: "st-lever" }), el("div", { class: "feed-tools", role: "group", "aria-label": "What to measure", id: "st-metric" })),
+      el("div", { class: "st-readout", id: "st-readout" }),
+      el("div", { class: "chart", id: "ch-cost" }),
+      el("div", { class: "legend", id: "st-cost-legend", style: "margin-top:8px" }),
+      el("div", { class: "tbl-wrap", style: "margin-top:14px" }, el("table", { id: "st-cost-tbl" })),
+      el("p", { class: "st-note", id: "st-cost-note" })),
+    el("section", { class: "sec" },
+      el("div", { class: "sec-h" }, el("h2", { text: "2 · Could luck explain it?" }), q("shuffle", "the luck tests")),
+      el("p", { class: "lead", text: "Search 30,000 rule sets and one of them will look great by chance. These two tests measure how big an edge over the bot's rules pure luck produces, so the ★ combo's edge can be compared with it." }),
+      el("div", { class: "st-two", id: "st-luck" }),
+      el("p", { class: "st-note", id: "st-luck-note" })),
+    el("section", { class: "sec" },
+      el("div", { class: "sec-h" }, el("h2", { text: "3 · Gaps and crashes" }), q("shocks", "the shock tests")),
+      el("p", { class: "lead", id: "st-shock-lead" }),
+      el("div", { class: "feed-tools", role: "group", "aria-label": "Scenario", id: "st-shocks", style: "margin-bottom:6px" }),
+      el("p", { class: "small", id: "st-shock-d", style: "margin:4px 0 10px" }),
+      el("div", { class: "chart", id: "st-strip" }),
+      el("div", { class: "tbl-wrap", style: "margin-top:10px" }, el("table", { id: "st-shock-tbl" })),
+      el("p", { class: "st-note", id: "st-shock-note" })),
+    el("section", { class: "sec" },
+      el("div", { class: "sec-h" }, el("h2", { text: "4 · Forward test" }), q("forwardtest", "forward testing")),
+      el("p", { class: "lead", text: "Every test above reuses the same history. The only test on data nobody has seen is running the rules from now on. It costs nothing on paper, and a track record takes months, so it should start early, alongside these tests." }),
+      el("div", { class: "checklist", id: "st-forward" })),
+  );
+  const items = [
+    ["A second Alpaca paper account", "Yours to open (free). Its keys go in a local file that's never committed, so both bots run side by side without touching each other."],
+    ["The bot learns the ★ combo's rules", "Strikes by delta from the live chain, calls above the current price, the pricey-options filter, 75% take-profit, and a settings file per bot. Built on a branch for your review, never straight to the live bot."],
+    ["Record the bid and ask at every fill", "Paper fills are friendlier than real ones. Logging the quotes lets the lab re-cost every paper trade at real spreads, and builds the spread history the free data lacks."],
+    ["Agree how to judge it before it starts", "For example: at least 6 months and 12 trades each; the combo wins only if its cash income per month is higher and its worst drop is no deeper, after real spreads. Deciding later invites moving the goalposts."],
+  ];
+  const host = $("#st-forward");
+  items.forEach(([t, d], i) => host.append(el("div", { class: "ci" }, el("span", { class: "num", text: String(i + 1) }), el("div", {}, el("b", { text: t }), el("p", { text: d })))));
+}
+function renderStressTab(kick = true) {
+  const box = $("#view-stress");
+  if (!ST.built) buildStressSkeleton(box);
+  const tk = st.ticker, mode = st.mode, strats = stressStrategies();
+  $("#st-sub").textContent = `${tk} · ${mode === "real" ? "Real prices, June 2024 to now" : "Model, 2016 to now"}`;
+  renderStressScore(tk, mode, strats);
+  renderCostTest(tk, mode, strats);
+  renderLuckTest(tk, mode, strats);
+  renderShockTest(tk, strats);
+  if (kick) runStress();
+}
+
+// ---------- scorecard ----------
+function costSummary(tk, mode, s) {
+  const pay = stPay.get(ckey(tk, s.cfg)), pts = stCost.get([mode, "spread", ckey(tk, s.cfg)].join("|"));
+  if (!pay || !pts) return null;
+  const tb = tbillCagr(tk, mode), at = (x) => { for (let j = 1; j < pts.length; j++) if (x <= pts[j].x) { const a = pts[j - 1], b = pts[j]; return a.cagr + (b.cagr - a.cagr) * (x - a.x) / (b.x - a.x); } return pts[pts.length - 1].cagr; };
+  const beT = SX.crossing(pts, "cagr", tb), beG = SX.crossing(pts, "cagr", GOAL), maxX = pts[pts.length - 1].x;
+  const room = beT == null ? Infinity : beT / pay.pct;
+  const wild = stCost.get([mode, "wild", ckey(tk, s.cfg)].join("|"));
+  return { pay, pts, tb, beT, beG, maxX, room, atPay: Number.isFinite(pay.pct) ? at(pay.pct) : NaN, atZero: pts[0].cagr,
+           wildHit: wild ? wild[wild.length - 1].cagr - wild[0].cagr : NaN, wildMax: SX.WILD_STEPS[SX.WILD_STEPS.length - 1] };
+}
+function luckSummary(tk, mode, s) {
+  const L = STRESS && STRESS.tickers && STRESS.tickers[tk];
+  if (s.key === "bot") return { text: "The yardstick", kind: "muted", sub: "Fixed before any search" };
+  if (s.key === "basic") return { text: "Not searched", kind: "muted", sub: "Textbook rules, fixed in advance" };
+  if (!L) return { text: "Not run yet", kind: "muted", sub: "node lab/stress_null.js" };
+  let edge, nulls, label;
+  if (s.searched) {
+    if (mode === "real") { edge = L.rc.real.pickEdge; nulls = L.rc.real.nullMax; label = "resamples"; }
+    else { edge = L.shuffle.pickEdge; nulls = L.shuffle.nullEdge; label = "fake histories"; }
+  } else {
+    const a = evaluate(s.cfg, mode), b = evaluate(botRules(tk), mode);
+    edge = metricsOf(a, a.run.eq, 0, a.run.len - 1).sharpe - metricsOf(b, b.run.eq, 0, b.run.len - 1).sharpe;
+    nulls = L.rc[mode].nullMax; label = "resamples";
+  }
+  if (!(edge > 0)) return { text: "No edge to test", kind: "muted", sub: `Sharpe ${num(edge)} vs the bot's rules`, edge };
+  const frac = nulls.filter((v) => v >= edge).length / nulls.length;
+  return { frac, edge, kind: frac < 0.05 ? "good" : frac < 0.2 ? "warn" : "critical", text: frac < 0.05 ? "Beats luck" : frac < 0.2 ? "Borderline" : "Could be luck",
+           sub: `Luck beat its +${edge.toFixed(2)} edge in ${pct(frac, 0)} of ${label}` };
+}
+function shockSummary(tk, id, s) { const rows = stShock.get(shockKey(tk, id, s.cfg)); return rows ? SX.summarize(rows) : null; }
+const recWords = (td) => td === Infinity ? "Over 1.5 years" : td === 0 ? "Never dipped" : td < 21 ? "Under a month" : `About ${Math.round(td / 21)} month${Math.round(td / 21) === 1 ? "" : "s"}`;
+function stCellEl(main, sub, kind) {
+  const icon = { good: "✓", warn: "?", critical: "!", serious: "!", muted: "–" }[kind];
+  return el("td", {}, el("div", { class: "st-cell" }, kind ? pill(main, kind, icon) : el("b", { text: main }), sub ? el("span", { class: "s", text: sub }) : null));
+}
+function renderStressScore(tk, mode, strats) {
+  const t = $("#st-score"); t.innerHTML = "";
+  const heldGap = stShock.get(`gap20|${tk}|held`), heldCrash = stShock.get(`crash|${tk}|held`);
+  t.append(el("thead", {}, el("tr", {}, ...["Strategy", "Cost room", "Luck", "−20% gap", "−35% crash", "Recovery from the gap"].map((h) => el("th", { text: h })))));
+  const tb = el("tbody");
+  for (const s of strats) {
+    const cs = costSummary(tk, mode, s), lk = luckSummary(tk, mode, s), g = shockSummary(tk, "gap20", s), c = shockSummary(tk, "crash", s);
+    const roomTxt = !cs ? "…" : cs.beT === 0 ? "None" : cs.room === Infinity ? `${Math.floor(cs.maxX / cs.pay.pct)}×+` : `${cs.room.toFixed(1)}×`;
+    const roomKind = !cs ? null : cs.room >= 3 ? "good" : cs.room >= 1.5 ? "warn" : "critical";
+    tb.append(el("tr", {},
+      el("td", {}, el("span", { class: "key" }, el("span", { class: "dot", style: `background:${s.color}` }), s.label)),
+      cs ? stCellEl(roomTxt, Number.isFinite(cs.pay.pct) ? `Pays ≈${pct(cs.pay.pct, 1)} a fill today` : "No spread data", roomKind) : stCellEl("…", "Running"),
+      stCellEl(lk.text, lk.sub, lk.kind),
+      g ? stCellEl(pct(g.hit, 0), `1 in 10: ${pct(g.hitBad, 0)}`) : stCellEl("…", "Running"),
+      c ? stCellEl(pct(c.hit, 0), `1 in 10: ${pct(c.hitBad, 0)}`) : stCellEl("…", "Running"),
+      g ? stCellEl(recWords(g.rec), `${pct(g.noRecYear, 0)} not within a year`) : stCellEl("…", "Running")));
+  }
+  if (heldGap) {
+    const hg = SX.summarize(heldGap), hc = heldCrash ? SX.summarize(heldCrash) : null;
+    tb.append(el("tr", { class: "held" }, el("td", {}, el("span", { class: "key" }, el("span", { class: "dot", style: `background:${C.held[tk] || C.muted}` }), `Just hold ${tk}`)),
+      stCellEl("No options", "Nothing to pay"), stCellEl("—", ""), stCellEl(pct(hg.hit, 0), "The shock itself"), stCellEl(hc ? pct(hc.hit, 0) : "…", hc ? "The shock itself" : ""),
+      stCellEl(recWords(hg.rec), `${pct(hg.noRecYear, 0)} not within a year`)));
+  }
+  t.append(tb);
+}
+
+// ---------- 1. costs ----------
+function renderCostTest(tk, mode, strats) {
+  const real = mode === "real", lever = ST.lever, metric = real ? ST.metric : "cagr";
+  const seg = (host, opts, cur, set) => { const h = $(host); h.innerHTML = ""; opts.forEach(([v, label]) => h.append(el("button", { "aria-pressed": String(v === cur), onclick: () => { set(v); renderStressTab(false); } }, label))); };
+  seg("#st-lever", [["spread", "Every day"], ["wild", "Wild days only"]], lever, (v) => (ST.lever = v));
+  seg("#st-metric", real ? [["cagr", "Yearly return"], ["income", "Cash / month"]] : [["cagr", "Yearly return"]], metric, (v) => (ST.metric = v));
+  $("#st-cost-lead").textContent = lever === "spread"
+    ? "Every fill gives up part of the gap between the bid and the ask. The lab assumed 3% of the option price. Here each strategy is rerun at wider and wider spreads to find where it stops paying, then compared with what today's quotes say you'd actually pay (the dots)."
+    : "Spreads widen when markets get wild, which is exactly when a wheel takes assignment or cuts losses. Here only the wildest 10% of days (20-day volatility in its top tenth) get wider spreads; every other day stays at today's measured spread. The dashed line is how much wider they really were, measured from past quotes.";
+  const sums = strats.map((s) => ({ s, cs: costSummary(tk, mode, s), pts: stCost.get([mode, lever, ckey(tk, s.cfg)].join("|")) }));
+  const ready = sums.every((x) => x.cs && x.pts);
+  const host = $("#ch-cost");
+  if (!ready) {
+    if (charts.cost) { charts.cost.destroy(); delete charts.cost; }
+    host.innerHTML = ""; host.append(el("p", { class: "small", style: "padding:40px 0;text-align:center", text: "Rerunning each strategy at every spread…" }));
+    $("#st-cost-tbl").innerHTML = ""; $("#st-readout").textContent = ""; $("#st-cost-legend").innerHTML = ""; $("#st-cost-note").textContent = "";
+    return;
+  }
+  const xsRaw = (lever === "spread" ? SX.SPREAD_STEPS : SX.WILD_STEPS), xs = xsRaw.map((x) => lever === "spread" ? x * 100 : x);
+  const val = (p) => metric === "income" ? p.income : p.cagr * 100;
+  const tb = tbillCagr(tk, mode), tbInc = real ? tbillIncome(tk) : NaN;
+  const series = [{}], data = [xs];
+  for (const { s, pts } of sums) { series.push({ label: s.label, stroke: s.color, width: 2, points: { show: false } }); data.push(pts.map(val)); }
+  const refs = metric === "income" ? [["T-bills only", tbInc, C.tbill, [1, 4]]] : [["8% goal", GOAL * 100, C.muted, [6, 4]], ["T-bills", tb * 100, C.tbill, [1, 4]]];
+  for (const [label, v, color, dash] of refs) { series.push({ label, stroke: color, width: 1.6, dash, cap: dash[0] === 1 ? "round" : "butt", points: { show: false } }); data.push(xs.map(() => v)); }
+  const fmtY = (v) => metric === "income" ? money(v) : `${v < 0 ? MINUS : ""}${Math.abs(v).toFixed(0)}%`;
+  const fmtX = (v) => lever === "spread" ? `${+v.toFixed(1)}%` : `${+v.toFixed(1)}×`;
+  const readout = (idx) => {
+    const r = $("#st-readout"); r.innerHTML = "";
+    if (idx == null) {
+      r.append(el("span", { text: lever === "spread" ? "Dots mark what each strategy would pay at today's measured spreads. Hover to read any spread." : "At 1×, wild days cost the same as calm ones. Hover to read any multiple." }));
+      return;
+    }
+    r.append(el("span", {}, el("b", { text: lever === "spread" ? `At ${fmtX(xs[idx])} a fill:` : `Wild days ${fmtX(xs[idx])} wider:` })));
+    sums.forEach(({ s }, j) => r.append(el("span", { class: "key" }, el("span", { class: "dot", style: `background:${s.color}` }), `${s.label} `, el("b", { text: metric === "income" ? money(data[j + 1][idx]) + "/mo" : pct(data[j + 1][idx] / 100, 1) }))));
+  };
+  readout(null);
+  const sp = STRESS && STRESS.spreads && STRESS.spreads[tk], wildRatio = sp && sp.wild ? sp.wild.ratio : null;
+  const payDots = (u) => {
+    const ctx = u.ctx, dpr = window.devicePixelRatio || 1;
+    if (lever !== "spread") { // the measured wild-day widening, as a reference line
+      if (!(wildRatio > 0)) return;
+      const x = u.valToPos(Math.max(xs[0], wildRatio), "x", true), y0 = u.bbox.top, y1 = u.bbox.top + u.bbox.height;
+      ctx.save(); ctx.strokeStyle = C.ink2; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash([4 * dpr, 3 * dpr]);
+      ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = `600 ${11 * dpr}px Figtree, system-ui, sans-serif`; ctx.fillStyle = C.ink2; ctx.textBaseline = "top";
+      ctx.fillText(`Measured: ${wildRatio.toFixed(1)}×`, x + 6 * dpr, y0 + 4 * dpr); ctx.restore();
+      return;
+    }
+    sums.forEach(({ s, cs, pts }) => {
+      const x = cs.pay.pct * 100; if (!Number.isFinite(x) || x > xs[xs.length - 1]) return;
+      let y = NaN;
+      for (let j = 1; j < xs.length; j++) if (x <= xs[j]) { const a = val(pts[j - 1]), b = val(pts[j]); y = a + (b - a) * (x - xs[j - 1]) / (xs[j] - xs[j - 1]); break; }
+      const px = u.valToPos(x, "x", true), py = u.valToPos(y, "y", true);
+      ctx.save(); ctx.beginPath(); ctx.arc(px, py, 5 * dpr, 0, 6.2832); ctx.fillStyle = s.color; ctx.fill();
+      ctx.lineWidth = 2 * dpr; ctx.strokeStyle = C.panel; ctx.stroke(); ctx.restore();
+    });
+  };
+  const width = Math.max(260, host.clientWidth || $("main").clientWidth);
+  mount("cost", {
+    width, height: 280, legend: { show: false }, padding: [12, 8, 0, 14],
+    cursor: { drag: { x: false, y: false }, y: false, points: { size: 7, width: 2, fill: C.panel } },
+    scales: { x: { time: false } },
+    axes: [{ ...AX(), size: 36, values: (u, v) => v.map((x) => x == null ? "" : fmtX(x)) }, { ...AX(), side: 1, size: 64, values: (u, v) => v.map((x) => x == null ? "" : fmtY(x)) }],
+    series, hooks: { setCursor: [(u) => readout(u.cursor.idx)], draw: [payDots] },
+  }, data);
+  const lg = $("#st-cost-legend"); lg.innerHTML = "";
+  for (const { s } of sums) lg.append(el("span", { class: "it" }, lineKey(s.color, null), s.label));
+  for (const [label, , color, dash] of refs) lg.append(el("span", { class: "it" }, lineKey(color, dash), label));
+  // table
+  const t = $("#st-cost-tbl"); t.innerHTML = "";
+  t.append(el("thead", {}, el("tr", {}, ...["Strategy", "Pays today", "Costs / yr", "Per year: at mid → today", "Under 8% at", "Under T-bills at", "Room", `Wild days ${sums[0].cs.wildMax}×`].map((h) => el("th", { text: h })))));
+  const tbo = el("tbody"), beTxt = (be, maxX) => be == null ? `Over ${Math.round(maxX * 100)}%` : be === 0 ? "Already" : pct(be, 0);
+  for (const { s, cs } of sums) {
+    tbo.append(el("tr", {},
+      el("td", {}, el("span", { class: "key" }, el("span", { class: "dot", style: `background:${s.color}` }), s.label)),
+      el("td", { text: Number.isFinite(cs.pay.pct) ? pct(cs.pay.pct, 1) : "–" }),
+      el("td", { text: Number.isFinite(cs.pay.dollars) ? money(cs.pay.dollars / cs.pay.years) : "–" }),
+      el("td", { text: `${pct(cs.atZero, 1)} → ${pct(cs.atPay, 1)}` }),
+      el("td", { text: beTxt(cs.beG, cs.maxX) }), el("td", { text: beTxt(cs.beT, cs.maxX) }),
+      el("td", { text: cs.beT === 0 ? "None" : cs.room === Infinity ? `${Math.floor(cs.maxX / cs.pay.pct)}×+` : `${cs.room.toFixed(1)}×` }),
+      el("td", { class: cs.wildHit < 0 ? "down" : "", text: `${pct(cs.wildHit, 1, true)}/yr` })));
+  }
+  t.append(tbo);
+  const fromDolt = sp && /DoltHub/.test(sp.source || "");
+  $("#st-cost-note").textContent = (sp ? `Today's spreads: ${sp.n} ${tk} option quotes near the strikes a wheel trades, ${fromDolt ? "from DoltHub's free end-of-day bid/ask data" : "from Alpaca's free feed"} on ${fmtDate(sp.asof)} (median ${pct(sp.medianPct, 1)} of the price; cheap options cost more per dollar). ` +
+      (fromDolt ? "Alpaca's free feed is derived rather than the real quotes, and showed AMZN spreads 2 to 4 times wider than these. " : "") +
+      (sp.wild && sp.wild.ratio ? `On past wild days, spreads at the close were ${pct(sp.wild.wildPct, 1)} of the price vs ${pct(sp.wild.calmPct, 1)} on calm days (${sp.wild.ratio.toFixed(1)}×): option prices rise along with the spreads. The open can be worse. ` : "") : "") +
+    "Room is how many times wider than today spreads could get before the strategy stops beating T-bills. Lines can wiggle: a different fill price changes when a take-profit triggers, which reshuffles the trades after it. " +
+    "The reel's third cost (your order being a big share of the volume) doesn't apply: one contract is a rounding error next to NVDA or AMZN volume.";
+}
+
+// ---------- 2. luck ----------
+function niceTicks(lo, hi, n = 5) {
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0))), f = step0 / mag;
+  const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+function histogram(host, values, marks, fmt, unit) {
+  const W = Math.max(260, host.clientWidth || 320), H = 190, padL = 6, padR = 6, top = 34, bot = 26, ih = H - top - bot;
+  let lo = Math.min(0, ...values, ...marks.map((m) => m.x)), hi = Math.max(...values, ...marks.map((m) => m.x));
+  const span = hi - lo || 1; lo -= span * 0.03; hi += span * 0.06;
+  const nb = 28, bw = (hi - lo) / nb, counts = new Array(nb).fill(0);
+  for (const v of values) counts[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++;
+  const cmax = Math.max(...counts), X = (v) => padL + (v - lo) / (hi - lo) * (W - padL - padR);
+  const svg = svgEl("svg", { class: "st-svg", width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Histogram of ${values.length} ${unit}` });
+  counts.forEach((c, j) => {
+    if (!c) return;
+    const x0 = X(lo + j * bw), x1 = X(lo + (j + 1) * bw), h = c / cmax * ih;
+    const r = svgEl("rect", { x: x0 + 1, y: top + ih - h, width: Math.max(1, x1 - x0 - 2), height: h, rx: 2, fill: C.muted, opacity: "0.38" });
+    const tt = svgEl("title", {}); tt.textContent = `${c} of ${values.length} ${unit}: ${fmt(lo + j * bw)} to ${fmt(lo + (j + 1) * bw)}`; r.append(tt);
+    svg.append(r);
+  });
+  svg.append(svgEl("line", { x1: padL, x2: W - padR, y1: top + ih + 0.5, y2: top + ih + 0.5, stroke: C.line2 }));
+  for (const v of niceTicks(lo, hi)) { const t = svgEl("text", { x: X(v), y: H - 8, "text-anchor": "middle" }); t.textContent = fmt(v); svg.append(t); }
+  // marks: vertical lines with labels stacked so they don't collide
+  const placed = [];
+  marks.slice().sort((a, b) => a.x - b.x).forEach((m) => {
+    const x = X(m.x); let row = 0; while (placed.some((p) => p.row === row && Math.abs(p.x - x) < 120)) row++;
+    placed.push({ x, row });
+    svg.append(svgEl("line", { x1: x, x2: x, y1: top - 4, y2: top + ih, stroke: m.color, "stroke-width": 2, "stroke-dasharray": m.dash || "" }));
+    const anchor = x > W - 90 ? "end" : x < 90 ? "start" : "middle";
+    const t = svgEl("text", { x, y: 12 + row * 13, "text-anchor": anchor, class: "lbl", style: `fill:${m.color}` }); t.textContent = m.label; svg.append(t);
+  });
+  host.innerHTML = ""; host.append(svg);
+}
+function renderLuckTest(tk, mode, strats) {
+  const box = $("#st-luck"); box.innerHTML = "";
+  const L = STRESS && STRESS.tickers && STRESS.tickers[tk];
+  if (!L) { box.append(el("p", { class: "small", text: `The luck tests haven't been run for ${tk} yet (node lab/stress_null.js).` })); $("#st-luck-note").textContent = ""; return; }
+  const sh = L.shuffle, rc = L.rc.real, rcm = L.rc.model, fmt = (v) => (v < 0 ? MINUS : v > 0 ? "+" : "") + Math.abs(v).toFixed(1);
+  const yours = strats.find((s) => s.yours), yEdge = (m) => { if (!yours) return null; const a = evaluate(yours.cfg, m), b = evaluate(botRules(tk), m); return metricsOf(a, a.run.eq, 0, a.run.len - 1).sharpe - metricsOf(b, b.run.eq, 0, b.run.len - 1).sharpe; };
+  const verdict = (beat, n) => beat / n < 0.05 ? "Passes: luck rarely gets this far." : beat / n < 0.2 ? "Borderline." : "Luck gets this far easily, so this edge isn't proven.";
+  const draws = [];
+  const card = (title, sub, values, marks, caption, unit) => {
+    const chart = el("div", { class: "chart" });
+    box.append(el("div", { class: "st-card" }, el("h3", { text: title }), el("p", { class: "small", style: "margin:0", text: sub }), chart, el("p", { class: "st-cap" }, ...caption)));
+    draws.push(() => histogram(chart, values, marks, fmt, unit));
+  };
+  const ye1 = yEdge("model"), ye2 = yEdge("real");
+  card("Fake histories with no edge", `${sh.worlds} shuffled copies of ${tk}'s 2016–26 moves; the full ${sh.configs.toLocaleString("en-US")}-rule search on each (model prices).`,
+    sh.nullEdge, [{ x: sh.q95, label: "95% of luck", color: C.ink2, dash: "4 3" }, { x: sh.pickEdge, label: "★ combo", color: C.best }, ...(ye1 > 0 ? [{ x: ye1, label: "Yours", color: C.yours }] : [])],
+    [el("b", { text: `In ${sh.beatPick} of ${sh.worlds} fake histories` }), ` the search found a rule set that beat the bot's rules by more than the ★ combo does on the real history (Sharpe ${fmt(sh.pickEdge)}). ${verdict(sh.beatPick, sh.worlds)} ` +
+      `The best of all ${sh.configs.toLocaleString("en-US")} on the real history beat the bot by ${fmt(sh.maxEdge)}; luck matched that in ${sh.beatMax} of ${sh.worlds}.`], "fake histories");
+  card("Real prices, resampled", `${rc.boots.toLocaleString("en-US")} resamples of ${tk}'s real 2024–26 results, in 20-day blocks, with every rule set's own edge removed.`,
+    rc.nullMax, [{ x: rc.q95, label: "95% of luck", color: C.ink2, dash: "4 3" }, { x: rc.pickEdge, label: "★ combo", color: C.best }, ...(ye2 > 0 ? [{ x: ye2, label: "Yours", color: C.yours }] : [])],
+    [el("b", { text: `In ${pct(rc.beatPick / rc.boots, 0)} of resamples` }), ` luck alone produced a bigger edge over the bot's rules than the ★ combo's ${fmt(rc.pickEdge)}. ${verdict(rc.beatPick, rc.boots)} ` +
+      `2.3 years is short: luck reaches ${fmt(rc.q95)} one time in twenty.`], "resamples");
+  draws.forEach((f) => f());
+  $("#st-luck-note").textContent = `Edges are in Sharpe ratio over the bot's rules, measured over the full window. The fake histories keep ${tk}'s real ups and downs but remove its trend and price options fairly, so no rule set has an edge; ` +
+    `the best Sharpe found there was typically ${num(median(sh.nullBest))}, against ${num(sh.maxSharpe)} on the real history, so the real data does contain something (the trend and overpriced options). The question is only whether any rule set captures it better than the bot's. ` +
+    `On the model's real history, resampling gives the same answer (luck matched the ★ combo in ${pct(rcm.beatPick / rcm.boots, 0)}). Comparing against the luckiest of every rule set is a strict test: it can say an edge is real, but failing it doesn't prove the edge is fake. That's what the forward test is for.`;
+}
+const median = (v) => { const s = v.slice().sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+
+// ---------- 3. shocks ----------
+function stripPlot(host, rows, fmt) {
+  const W = Math.max(280, host.clientWidth || 600), rowH = 46, padL = 132, padR = 16, top = 22, H = top + rows.length * rowH + 26;
+  const all = rows.flatMap((r) => r.values);
+  let lo = Math.min(0, ...all), hi = Math.max(0, ...all); const span = hi - lo || 0.1; lo -= span * 0.04; hi += span * 0.04;
+  const X = (v) => padL + (v - lo) / (hi - lo) * (W - padL - padR);
+  const svg = svgEl("svg", { class: "st-svg", width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Each dot is one shock date" });
+  for (const v of niceTicks(lo, hi, 6)) {
+    svg.append(svgEl("line", { x1: X(v), x2: X(v), y1: top - 6, y2: H - 22, stroke: Math.abs(v) < 1e-9 ? C.line2 : C.line, "stroke-width": 1 }));
+    const t = svgEl("text", { x: X(v), y: H - 6, "text-anchor": "middle" }); t.textContent = fmt(v); svg.append(t);
+  }
+  rows.forEach((r, i) => {
+    const cy = top + i * rowH + rowH / 2;
+    const name = svgEl("text", { x: 0, y: cy + 4, class: "lbl" }); name.textContent = r.label; svg.append(name);
+    r.values.forEach((v, j) => {
+      const jit = ((j * 9301 + 49297) % 233280) / 233280 - 0.5;
+      const c = svgEl("circle", { cx: X(v), cy: cy + jit * 16, r: 2.6, fill: r.color, opacity: "0.42" });
+      const tt = svgEl("title", {}); tt.textContent = `${r.label}, shock on ${fmtDate(D.dates[r.dates[j]])}: ${r.tip(v)}`; c.append(tt);
+      svg.append(c);
+    });
+    const m = median(r.values), xm = X(m);
+    svg.append(svgEl("line", { x1: xm, x2: xm, y1: cy - 13, y2: cy + 13, stroke: C.ink, "stroke-width": 2.5, "stroke-linecap": "round" }));
+    const lab = svgEl("text", { x: xm, y: cy - 16, "text-anchor": "middle", class: "lbl" }); lab.textContent = fmt(m); svg.append(lab);
+  });
+  host.innerHTML = ""; host.append(svg);
+}
+function renderShockTest(tk, strats) {
+  const cur = SX.SHOCKS.find((x) => x.id === ST.shock), h = $("#st-shocks"); h.innerHTML = "";
+  SX.SHOCKS.forEach((x) => h.append(el("button", { "aria-pressed": String(x.id === ST.shock), onclick: () => { ST.shock = x.id; renderStressTab(true); } }, x.name)));
+  const nDates = SX.shockDates(E, D, cur).dates.length;
+  $("#st-shock-lead").textContent = `Each scenario is dropped into ${tk}'s real 2016–26 history at about ${nDates} different dates, every two weeks, so it lands while each strategy is holding cash, a put, or shares. Then the strategy keeps running by its rules. Model prices, fully invested, in percent of the account.`;
+  $("#st-shock-d").textContent = cur.d;
+  const heldRows = stShock.get(`${cur.id}|${tk}|held`), sums = strats.map((s) => ({ s, rows: stShock.get(shockKey(tk, cur.id, s.cfg)) }));
+  const host = $("#st-strip"), t = $("#st-shock-tbl");
+  if (!heldRows || sums.some((x) => !x.rows)) {
+    host.innerHTML = ""; host.append(el("p", { class: "small", style: "padding:40px 0;text-align:center", text: `Dropping the shock into ${nDates} dates of history…` }));
+    t.innerHTML = ""; $("#st-shock-note").textContent = ""; return;
+  }
+  const fmt = (v) => pct(v, 0, true), tip = (v) => `${pct(Math.abs(v), 1)} ${v < 0 ? "lower" : "higher"} a month after the shock than without it`;
+  const rows = sums.map(({ s, rows }) => ({ label: s.label, color: s.color, values: rows.map((r) => r.hit), dates: rows.map((r) => r.d), tip }))
+    .concat([{ label: `Just hold ${tk}`, color: C.held[tk] || C.muted, values: heldRows.map((r) => r.hit), dates: heldRows.map((r) => r.d), tip }]);
+  stripPlot(host, rows, fmt);
+  t.innerHTML = "";
+  t.append(el("thead", {}, el("tr", {}, ...["Strategy", "Typical hit", "1 in 10", "Worst", "Worst point in the year after", "Back to even", "Not back within a year", "Holding shares when hit"].map((x) => el("th", { text: x })))));
+  const tb = el("tbody");
+  const row = (label, color, rs, cls) => {
+    const m = SX.summarize(rs);
+    tb.append(el("tr", { class: cls || "" }, el("td", {}, el("span", { class: "key" }, el("span", { class: "dot", style: `background:${color}` }), label)),
+      el("td", { class: m.hit < 0 ? "down" : "up", text: pct(m.hit, 1, true) }), el("td", { text: pct(m.hitBad, 1, true) }), el("td", { text: pct(m.hitWorst, 1, true) }),
+      el("td", { text: pct(m.low, 1, true) }), el("td", { text: recWords(m.rec) }), el("td", { text: pct(m.noRecYear, 0) }), el("td", { text: cls ? "—" : pct(m.inShares, 0) })));
+  };
+  for (const { s, rows: rs } of sums) row(s.label, s.color, rs);
+  row(`Just hold ${tk}`, C.held[tk] || C.muted, heldRows, "held");
+  t.append(tb);
+  $("#st-shock-note").textContent = "Typical hit: how much lower the account is a month after the shock ends than it would have been without it (each dot is one date; the bar is the middle). " +
+    "Worst point and back to even are measured from the day before the shock, on the real path that followed. A wheel loses less than the stock in a drop because the premium cushions it and part of the money sits in cash, " +
+    "but once it's assigned it holds the shares and takes the rest of the fall. In a rally it gives most of the gain away.";
+}
+
 // ======================= research & learn =======================
 function setTab(v) {
   st.tab = v;
-  for (const x of ["backtest", "log", "concepts"]) { $("#view-" + x).hidden = x !== v; $("#tab-" + x).setAttribute("aria-selected", String(x === v)); }
-  if (v === "backtest") render(); else if (v === "log") renderLog();
+  for (const x of ["backtest", "stress", "log", "concepts"]) { $("#view-" + x).hidden = x !== v; $("#tab-" + x).setAttribute("aria-selected", String(x === v)); }
+  if (v === "backtest" || v === "stress") render(); else if (v === "log") renderLog();
+  try { history.replaceState(null, "", v === "backtest" ? location.pathname + location.search : "#" + v); } catch (e) { /* sandboxed */ }
   window.scrollTo({ top: 0 });
 }
 function liveLine(cfg) {
@@ -1703,19 +2200,19 @@ const nRef = Object.keys(L.reference).length;
 $("#parity").textContent = `${nRef}/${nRef}`;
 buildTicket();
 renderConcepts();
-render();
+if (["#stress", "#log", "#concepts"].includes(location.hash)) setTab(location.hash.slice(1)); else render();
 (async () => {
   for (const { sym } of L.tickerList) if (!D.tickers[sym]) { try { await loadTicker(sym); } catch (e) { /* the table shows it as loading */ } }
-  if (st.tab === "backtest") render();
+  if (st.tab === "backtest" || st.tab === "stress") render();
 })();
-function onTheme() { C = readColors(); if (st.tab === "backtest") render(); else if (st.tab === "log") renderLog(); }
+function onTheme() { C = readColors(); if (st.tab === "backtest" || st.tab === "stress") render(); else if (st.tab === "log") renderLog(); }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
 new MutationObserver(onTheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 let rT, lastW = $("main").clientWidth;
 new ResizeObserver(() => {
   const w = $("main").clientWidth;
   if (Math.abs(w - lastW) < 4) return;
-  lastW = w; clearTimeout(rT); rT = setTimeout(() => st.tab === "backtest" && render(), 150);
+  lastW = w; clearTimeout(rT); rT = setTimeout(() => (st.tab === "backtest" || st.tab === "stress") && render(), 150);
 }).observe($("main"));
 })();
 </script>

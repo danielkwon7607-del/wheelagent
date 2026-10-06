@@ -29,3 +29,4 @@ lab/data.js
 lab/dist/
 lab/data_*.js
 lab/best.js
+lab/stress.js

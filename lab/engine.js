@@ -105,12 +105,32 @@
     for (let i = 1; i < n; i++) lr[i] = Math.log(S[i] / S[i - 1]);
     const s20 = D.rollStd(lr, 20), s60 = D.rollStd(lr, 60), rv = new Float64Array(n);
     for (let i = 0; i < n; i++) rv[i] = 0.5 * s20[i] * SQ252 + 0.5 * s60[i] * SQ252;
+    // "Wild" days for the cost stress test: 20-day volatility in its top 10%.
+    const ok = Array.from(s20).filter(Number.isFinite).sort((a, b) => a - b), thr = ok[Math.floor(ok.length * 0.9)], hot = new Uint8Array(n);
+    for (let i = 0; i < n; i++) hot[i] = s20[i] >= thr ? 1 : 0;
     const chains = new Map();
     for (const [iso, ch] of Object.entries(T.chains || {})) {
       chains.set(epochDay(iso), { P: ch.P.slice().sort((a, b) => a[0] - b[0]), C: ch.C.slice().sort((a, b) => a[0] - b[0]) });
     }
-    D.tickers[tk] = { ticker: tk, S, tr: D.stockTR[tk] || S, rv, chains, bars: T.bars, earnings: T.earnings.map(epochDay), barCache: new Map(), model: T.model, capital: T.capital };
+    D.tickers[tk] = { ticker: tk, S, tr: D.stockTR[tk] || S, rv, hot, chains, bars: T.bars, earnings: T.earnings.map(epochDay), barCache: new Map(), model: T.model, capital: T.capital };
     return D.tickers[tk];
+  };
+  // A copy of one stock on a different price path, for the stress tests
+  // (shocked or reshuffled histories). Model prices only: there are no real
+  // option prices for a path that never happened. Realized vol is recomputed
+  // from index `from` to `to`; before `from` the path must match the original.
+  E.pathTicker = function (D, tk, key, close, opts = {}) {
+    const base = D.tickers[tk], n = D.n, S = Float64Array.from(close), rv = Float64Array.from(base.rv);
+    const from = Math.max(60, opts.from ?? 60), to = Math.min(n - 1, opts.to ?? n - 1);
+    const sd = (i, w) => {
+      let m = 0; for (let j = i - w + 1; j <= i; j++) m += Math.log(S[j] / S[j - 1]); m /= w;
+      let v = 0; for (let j = i - w + 1; j <= i; j++) v += (Math.log(S[j] / S[j - 1]) - m) ** 2;
+      return Math.sqrt(v / (w - 1));
+    };
+    for (let i = from; i <= to; i++) rv[i] = 0.5 * sd(i, 20) * SQ252 + 0.5 * sd(i, 60) * SQ252;
+    D.tickers[key] = { ticker: key, S, tr: S, rv, hot: base.hot, chains: new Map(), bars: {}, earnings: opts.earnings || base.earnings,
+                       barCache: new Map(), model: opts.model || base.model, capital: base.capital };
+    return D.tickers[key];
   };
   // The dataset seen by one simulation: shared calendar + that ticker's prices.
   const viewOf = (D, tk) => Object.assign(Object.create(D), D.tickers[tk]);
@@ -164,7 +184,8 @@
   const FEE = 0.05, MIN_PREMIUM = 0.05, MIN_DELTA = 0.02, CAP = 25000;
 
   // ---------- simulation ----------
-  E.simulate = function (D0, cfg, mode, ticker = "NVDA") {
+  // opts.i0 / opts.i1 override the window (indices into the shared calendar).
+  E.simulate = function (D0, cfg, mode, ticker = "NVDA", opts = {}) {
     const D = viewOf(D0, ticker);
     // Real prices: the smallest account that fits one contract ($25k for NVDA),
     // with results scaled to $25k so every ticker reads the same way.
@@ -172,13 +193,17 @@
     const win = E.WINDOWS[mode];
     let i0 = 0; while (D.dates[i0] < win.start) i0++;
     let i1 = D.n - 1; while (D.dates[i1] > win.end) i1--;
-    const len = i1 - i0 + 1, real = mode === "real", hs = cfg.halfSpread;
+    if (opts.i0 != null) i0 = opts.i0;
+    if (opts.i1 != null) i1 = opts.i1;
+    const len = i1 - i0 + 1, real = mode === "real", hs0 = cfg.halfSpread, wild = cfg.stressSpread || 1;
+    // Spread cost per fill; on wild days (top-10% volatility) it can be scaled up.
+    const hsAt = (i) => wild !== 1 && D.hot && D.hot[i] ? Math.min(0.5, hs0 * wild) : hs0;
     const eq = new Float64Array(len), state = new Uint8Array(len);
     const trades = [], events = [];
     let cash = CAPX, q = 0, basis = 0, short = null, interest = 0, shareGains = 0, stuckLogged = false;
     const tb = (i) => D.tbill[i];
-    const fillSell = (px) => real ? Math.max(0, px - Math.max(0.01, px * hs)) - FEE / 100 : px * (1 - hs);
-    const fillBuy = (px) => real ? px + Math.max(0.01, px * hs) + FEE / 100 : px * (1 + hs);
+    const fillSell = (px, i) => { const hs = hsAt(i); return real ? Math.max(0, px - Math.max(0.01, px * hs)) - FEE / 100 : px * (1 - hs); };
+    const fillBuy = (px, i) => { const hs = hsAt(i); return real ? px + Math.max(0.01, px * hs) + FEE / 100 : px * (1 + hs); };
     // Model IV = realized vol x a multiplier. NVDA uses one calibrated number
     // (as in the research engine); the other stocks follow a curve measured at
     // several strike distances, scaled by the pricing lever.
@@ -281,12 +306,12 @@
           else ev(k, "expire", `${kind === "P" ? "Put" : "Call"} $${K.toFixed(2)} expired worthless, kept $${pnl.toFixed(0)}`);
           stuckLogged = false;
         } else if (cfg.tp != null && !isNaN(px) && px <= short.entry * (1 - cfg.tp)) {
-          const kind = short.kind, K = short.K, cost = fillBuy(px);
+          const kind = short.kind, K = short.K, cost = fillBuy(px, i);
           cash -= cost * short.qty;
           const pnl = closeShort(k, cost, "take_profit");
           ev(k, "tp", `Took profit on ${kind === "P" ? "put" : "call"} $${K.toFixed(2)}: +$${pnl.toFixed(0)}`);
         } else if (cfg.loss != null && !isNaN(px) && px >= short.entry * cfg.loss) {
-          const kind = short.kind, K = short.K, cost = fillBuy(px);
+          const kind = short.kind, K = short.K, cost = fillBuy(px, i);
           cash -= cost * short.qty;
           const pnl = closeShort(k, cost, "loss_cut");
           ev(k, "stop", `Cut loss on ${kind === "P" ? "put" : "call"} $${K.toFixed(2)} at ${cfg.loss}x credit: $${pnl.toFixed(0)}`);
@@ -316,7 +341,7 @@
         }
         const contracts = cfg.sizing === "max" ? Math.max(1, Math.floor(capital / (p.K * 100))) : 1;
         if (p.K * 100 * contracts > capital) return;
-        const prem = fillSell(p.px);
+        const prem = fillSell(p.px, i);
         cash += prem * 100 * contracts;
         short = { kind: "P", K: p.K, exp: p.exp, entry: prem, last: p.px, qty: 100 * contracts, k, cid: p.cid, iv: p.iv, delta: p.delta, earn: p.earn };
         ev(k, "put", `Sold ${contracts > 1 ? contracts + "x " : ""}$${p.K} put exp ${isoOf(p.exp)} for $${prem.toFixed(2)} (delta ${p.delta ? Math.abs(p.delta).toFixed(2) : "?"})`);
@@ -328,7 +353,7 @@
         const vol = modelIv("P", i, exp, K / S);
         const delta = bsDelta("P", S, K, T, r, vol);
         if (Math.abs(delta) < MIN_DELTA) return;
-        const bs = bsPrice("P", S, K, T, r, vol), px = bs * (1 - hs), qty = cash / K;
+        const bs = bsPrice("P", S, K, T, r, vol), px = bs * (1 - hsAt(i)), qty = cash / K;
         cash += px * qty;
         short = { kind: "P", K, exp, entry: px, qty, k, mark: bs, iv: vol, delta, earn: crossesEarnings(D, d, exp) };
         ev(k, "put", `Sold put ${((1 - K / S) * 100).toFixed(1)}% below NVDA, exp ${isoOf(exp)}, delta ${Math.abs(delta).toFixed(2)}`);
@@ -342,7 +367,7 @@
         const target = Math.ceil(Math.round(ref * (1 + cfg.call.otm) * 1e10) / 1e10);
         const p = pickReal("C", i, S, d, target, 0);
         if (!p || p.skip) { if (!stuckLogged) { ev(k, "stuck", `No call to sell: holding shares (basis $${basis.toFixed(2)}, NVDA $${S.toFixed(2)})`); stuckLogged = true; } return; }
-        const prem = fillSell(p.px);
+        const prem = fillSell(p.px, i);
         cash += prem * q;
         short = { kind: "C", K: p.K, exp: p.exp, entry: prem, last: p.px, qty: q, k, cid: p.cid, iv: p.iv, delta: p.delta, earn: p.earn };
         ev(k, "call", `Sold $${p.K} call exp ${isoOf(p.exp)} for $${prem.toFixed(2)} (basis $${basis.toFixed(2)})`);
@@ -358,7 +383,7 @@
           if (!stuckLogged) { ev(k, "stuck", `No call worth selling: shares ${((1 - S / basis) * 100).toFixed(0)}% under basis`); stuckLogged = true; }
           return;
         }
-        const bs = bsPrice("C", S, K, T, r, vol), px = bs * (1 - hs);
+        const bs = bsPrice("C", S, K, T, r, vol), px = bs * (1 - hsAt(i));
         cash += px * q;
         short = { kind: "C", K, exp, entry: px, qty: q, k, mark: bs, iv: vol, delta, earn: crossesEarnings(D, d, exp) };
         ev(k, "call", `Sold call ${((K / S - 1) * 100).toFixed(1)}% above NVDA (basis ${((basis / S - 1) * 100).toFixed(0)}% away), delta ${delta.toFixed(2)}`);

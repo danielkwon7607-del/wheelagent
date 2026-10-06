@@ -23,14 +23,14 @@ adding something means editing or replacing something — not appending.
   profit and roll immediately. Cash-secured only, 1 contract.
 - Build plan: docs/kiln-build-prompt.md, phases 0-6, stop for Daniel's
   review after each. Phase 0 (4 bug fixes) done on branch phase0-bug-fixes.
-- Research 2026-10-03: the basic wheel kept ~63% of NVDA's CAGR but ~90%
-  of its max drawdown; premium was ~18% of 2024-26 profit. A 200-day filter
-  on new puts never fires (already assigned). Basis vs spot calls is a
-  regime tradeoff.
+- Research 2026-10-03: the wheel kept ~63% of NVDA's CAGR but ~90% of its
+  max drawdown; premium was ~18% of 2024-26 profit.
 - Search 2026-10-05: NVDA best = 0.30 delta, 21d, TP 75%, calls 5% above
   price, pricey filter 1.1: real 20.7%/yr Sharpe 1.96 dd -3.9% vs bot 21.5%/
-  1.09/-13.2%. No pick on any ticker beats the luck allowance after ~30k
-  tries, so the plan is a forward test, not a switch. Daniel likes AMZN.
+  1.09/-13.2%. Stress tab (10-05): luck beat that edge in 93% of real-price
+  resamples and 95% of 300 shuffled no-edge searches, so the plan is a
+  forward test, not a switch. Spreads aren't the risk (break-even >50% of
+  the option price). Daniel likes AMZN.
 - Daniel approves rules, not trades: once a rule set is picked the bot
   runs fully automatically. Never add per-trade confirmation steps.
 
@@ -53,18 +53,18 @@ adding something means editing or replacing something — not appending.
   match research/ on the original rules: run node lab/parity_test.js after
   any engine change. Tries start at 40 (the research grid + model runs).
   Wheel tickers NVDA and AMZN only (Daniel cut SPY/COST/JNJ/WMT/XOM); AMZN
-  loads from data_AMZN.js; strikes capped like the bot. "Basic wheel" =
-  E.BASIC_RULES (0.30 delta, 30d, hold, calls >= cost), the no-search
-  yardstick; the Combos table shows bot/basic/best x stock. Model IV
-  uses measured skew curves; NVDA stays flat 1.13 for parity. lab/search.js
-  (30,240 combos/ticker, ~2 min each) writes best.js: plateau pick, 30+
-  trades, 8%/yr floor, design-only pick + luck check. Red line = that pick.
+  loads from data_AMZN.js. "Basic wheel" = E.BASIC_RULES (0.30 delta, 30d,
+  hold), the no-search yardstick. Model IV uses measured skew curves; NVDA
+  stays flat 1.13 for parity. search.js (grid in grid.js, 30,240 combos/
+  ticker) writes best.js: plateau pick, 30+ trades, 8%/yr floor. Red line =
+  that pick. Stress test tab = stresstests.js (costs, shocks, live) +
+  stress_null.js (luck tests, ~15 min/ticker on all cores) -> stress.js.
 - logging_setup.py: log/summary timestamps in Pacific (Daniel is on the
   west coast). Display only — market hours stay in New York time; never
   move is_market_hours to Pacific (it would trade 12:30-7pm ET).
-- Trigger: cron-job.org job 8559901 "wheel bot trigger" (Daniel's account)
-  POSTs workflow_dispatch on main every 15 min, 9:00-15:45 America/New_York,
-  Mon-Fri; emails Daniel after 2 failures. It holds a fine-grained GitHub
+- Trigger: cron-job.org job 8559901 (Daniel's account) POSTs
+  workflow_dispatch on main every 15 min, 9:00-15:45 ET, Mon-Fri; emails
+  Daniel after 2 failures. It holds a fine-grained GitHub
   token (this repo, Actions r/w; expiry unknown). setup_trigger.py creates
   or updates it from gitignored .env.trigger (token + cron-job.org API key).
 - .github/workflows/wheel.yml: workflow_dispatch only, concurrency group
@@ -83,9 +83,8 @@ adding something means editing or replacing something — not appending.
   page, neutral ink/paper, green/pink only for up/down, calm, no blue
   chrome. Solid = strategy, dashed = just hold a stock, dotted = T-bills.
   Bot's rules blue, best combo red, NVDA held forest green (his picks);
-  SPY/COST removed entirely at his ask. Pills toggle lines; the P&L picker
-  sets the hero line; the Compare table shows % vs that line.
-  He rejected a terminal look and a bubbly glass look before this.
+  your rules teal in the stress tab. He rejected a terminal look and a
+  bubbly glass look before this.
 - The bot only cancels its own (wheelbot-) orders. Any other open NVDA
   order blocks it until gone — never auto-cancel manual orders.
 
@@ -97,9 +96,10 @@ adding something means editing or replacing something — not appending.
 - is_market_hours ignores holidays and early closes. On those days only
   the quote-staleness checks stop trades; Alpaca get_clock() knows the
   real calendar.
-- Option data is the free "indicative" feed only (OPRA agreement not
-  signed). Quotes ~0-5s old; snapshots include IV and greeks. Its prices
-  can be non-monotonic across strikes — sanity-check before trusting.
+- Option data is the free "indicative" feed only (OPRA not signed): derived,
+  not the real NBBO. Its AMZN spreads ran 2-4x wider than DoltHub's free EOD
+  bid/ask (post-no-preference/options, M/W/F, 2019+, research/
+  dolthub_spreads.py), which the lab now uses. Prices can be non-monotonic.
 - Historical option bars (free): from ~2024-01, trade-based OHLC (no
   bid/ask), illiquid strikes skip days, pre-2024-06-10 under pre-split
   symbols. A request whose end is within ~15 min of now gets 403 "OPRA
@@ -113,8 +113,9 @@ adding something means editing or replacing something — not appending.
 - Limit orders sit at mid. An unfilled order is cancelled after 10 min and
   re-priced at the new mid on the next run; there is no stepping toward
   bid/ask yet (Phase 4), so a close may never fill and ride to expiry.
-- "10% below spot" is ~0.07-0.10 delta on NVDA but ~0.02 on SPY and ~0.03
-  on COST (tiny premium, never assigned). Compare stocks by delta.
+- "10% below spot" is ~0.07-0.10 delta on NVDA, far less on calm stocks.
+  Compare stocks by delta. Headless Chrome won't go below 500px wide: test
+  phone layouts in a 390px iframe.
 - No earnings filter. NVDA reports ~late Nov; the bot will sell through it.
 - After assignment in a drop, "10% above cost basis" can be far OTM and
   pay ~nothing. No fallback or roll rule exists yet.

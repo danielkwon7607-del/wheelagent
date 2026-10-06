@@ -12,20 +12,9 @@ const E = require("./engine.js");
 const D = E.prepare(window.LAB_DATA);
 for (const [tk, T] of Object.entries(window.LAB_TICKERS || {})) E.addTicker(D, tk, T);
 
-const PUTS = [["otm", 0.05], ["otm", 0.075], ["otm", 0.10], ["otm", 0.125], ["otm", 0.15], ["delta", 0.10], ["delta", 0.15], ["delta", 0.20], ["delta", 0.25], ["delta", 0.30]];
-const DTES = [7, 14, 21, 30, 45, 60], TPS = [null, 0.25, 0.5, 0.75], LOSSES = [null, 2, 3];
-const CALLS = [["basis", { otm: 0.10 }], ["basis", { otm: 0.05 }], ["spot", { otm: 0.05 }], ["spot", { otm: 0.10 }], ["delta", { delta: 0.20 }], ["delta", { delta: 0.30 }], ["hybrid", { delta: 0.20, under: 0.20, otm: 0.10 }]];
-const EARN = [false, true], VOLS = [null, 1.1];
-
-function cfgFor(tk, g) {
-  const c = JSON.parse(JSON.stringify(E.BOT_RULES)), M = D.tickers[tk].model;
-  Object.assign(c, { putMult: M.putMult, callMult: M.callMult, earnPut: M.earnPut, earnCall: M.earnCall });
-  c.put.method = PUTS[g.p][0]; if (c.put.method === "otm") c.put.otm = PUTS[g.p][1]; else c.put.delta = PUTS[g.p][1];
-  c.dte = DTES[g.d]; c.tp = TPS[g.t]; c.loss = LOSSES[g.l];
-  c.call.method = CALLS[g.c][0]; Object.assign(c.call, CALLS[g.c][1]);
-  c.skipEarnings = EARN[g.e]; c.volFilter = VOLS[g.v];
-  return c;
-}
+const G = require("./grid.js");
+const { PUTS, DTES, TPS, LOSSES, CALLS, EARN, VOLS, BOT_G, keyOf } = G;
+const cfgFor = (tk, g) => G.cfgFor(D.tickers[tk].model, g);
 function measure(tk, cfg, mode) {
   const r = E.simulate(D, cfg, mode, tk), b = E.benchmarks(D, r.i0, r.i1), sp = E.splitIndex(D, r), last = r.len - 1;
   const full = E.metrics(D, r, r.eq, b.tbill), des = E.metrics(D, r, r.eq, b.tbill, 0, sp - 1), tst = E.metrics(D, r, r.eq, b.tbill, sp, last);
@@ -33,7 +22,6 @@ function measure(tk, cfg, mode) {
 }
 const pctRank = (vals) => { const idx = vals.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]), out = new Array(vals.length); idx.forEach(([, i], k) => (out[i] = k / (vals.length - 1))); return out; };
 const median = (v) => { const s = v.slice().sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
-const keyOf = (g) => [g.p, g.d, g.t, g.l, g.c, g.e, g.v].join(",");
 
 function luck(rA, bA, rB, N) { // Sharpe edge of A over B vs the best luck after N tries (Memmel SE)
   const ex = (r, b) => { const o = []; for (let k = 1; k < r.len; k++) o.push(r.eq[k] / r.eq[k - 1] - 1 - (b.tbill[k] / b.tbill[k - 1] - 1)); return o; };
@@ -80,7 +68,7 @@ for (const tk of Object.keys(D.tickers).filter((t) => !only.length || only.inclu
   const pick = (sc) => { let bi = -1; sc.forEach((s, i) => { if (eligible(grid[i]) && (bi < 0 || s > sc[bi])) bi = i; }); return bi; };
   const robFull = robust(full), robDes = robust(design);
   const iBest = pick(robFull), iRaw = pick(full), iDes = pick(robDes);
-  const botG = { p: 2, d: 1, t: 2, l: 0, c: 0, e: 0, v: 0 }, iBot = byKey.get(keyOf(botG));
+  const botG = BOT_G, iBot = byKey.get(keyOf(botG));
   const N = grid.length + grid.length / 2;
   const bestCfg = cfgFor(tk, grid[iBest].g), botCfg = cfgFor(tk, botG);
   const rb = measure(tk, bestCfg, "real"), rbot = measure(tk, botCfg, "real");
