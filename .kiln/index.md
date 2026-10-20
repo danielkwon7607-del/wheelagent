@@ -22,7 +22,8 @@ adding something means editing or replacing something — not appending.
   basis, expiry = first Friday >=14 days out (14-20 DTE), close at 50%
   profit and roll immediately. Cash-secured only, 1 contract.
 - Build plan: docs/kiln-build-prompt.md, phases 0-6, stop for Daniel's
-  review after each. Phase 0 (4 bug fixes) done on branch phase0-bug-fixes.
+  review after each. Phase 0 merged. Branch delta-strikes (10-20, pushed,
+  unmerged): PUT_STRIKE_METHOD "delta" option, default "otm" unchanged.
 - Research 2026-10-03: the wheel kept ~63% of NVDA's CAGR but ~90% of its
   max drawdown; premium was ~18% of 2024-26 profit.
 - Search 2026-10-05: NVDA best = 0.30 delta, 21d, TP 75%, calls 5% above
@@ -114,8 +115,7 @@ adding something means editing or replacing something — not appending.
   re-priced at the new mid on the next run; there is no stepping toward
   bid/ask yet (Phase 4), so a close may never fill and ride to expiry.
 - "10% below spot" is ~0.07-0.10 delta on NVDA, far less on calm stocks.
-  Compare stocks by delta. Headless Chrome won't go below 500px wide: test
-  phone layouts in a 390px iframe.
+  Compare stocks by delta.
 - No earnings filter. NVDA reports ~late Nov; the bot will sell through it.
 - After assignment in a drop, "10% above cost basis" can be far OTM and
   pay ~nothing. No fallback or roll rule exists yet.
