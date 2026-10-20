@@ -4,12 +4,15 @@ Run this file directly: python wheel_bot.py
 Runs on GitHub Actions every 15 min during market hours (no PC needed).
 """
 import logging
+import math
 import time
 from datetime import datetime, timezone
 
 from alpaca_client import AlpacaClient
 from logging_setup import now_pacific, setup_logging
 from strategy import (
+    PUT_DELTA,
+    PUT_STRIKE_METHOD,
     available_capital,
     determine_state,
     get_call_strike,
@@ -19,6 +22,7 @@ from strategy import (
     is_market_hours,
     is_order_stale,
     occ_strike,
+    pick_put_by_delta,
     quote_problem,
     round_to_tick,
     should_close_early,
@@ -183,6 +187,8 @@ class WheelBot:
             log.warning("No trustworthy NVDA price (quote and last trade stale, zero, or junk) — not selling a put.")
             return {"action": "SKIP_BAD_QUOTE", "symbol": "NVDA"}
         capital = self._available_capital()
+        if PUT_STRIKE_METHOD == "delta":
+            return self._sell_put_by_delta(nvda_price, capital)
         strike = get_put_strike(nvda_price, capital)
         expiry = get_target_expiry()
         contract = self.client.find_put_contract(strike, expiry)
@@ -190,6 +196,19 @@ class WheelBot:
             log.warning(f"No put contract found for strike=${strike}, expiry={expiry}, capital=${capital:.2f}")
             return {"action": "NO_CONTRACT", "strike": strike, "expiry": str(expiry)}
         return self._sell(contract, "put", f"strike=${strike}, expiry={expiry}, NVDA=${nvda_price:.2f}, capital=${capital:.2f}")
+
+    def _sell_put_by_delta(self, nvda_price: float, capital: float) -> dict:
+        """Sell the put closest to PUT_DELTA from the live chain, among strikes
+        the capital covers. No sale if nothing usable is close enough."""
+        expiry = get_target_expiry()
+        max_strike = math.floor(capital / 100)
+        chain = self.client.get_put_chain(expiry, min_strike=math.floor(nvda_price * 0.70), max_strike=math.ceil(nvda_price))
+        pick, delta, why = pick_put_by_delta(chain, nvda_price, max_strike, datetime.now(timezone.utc))
+        if pick is None:
+            log.warning(f"No put sold: {why}. Target {PUT_DELTA:.2f} delta, expiry~{expiry}, NVDA=${nvda_price:.2f}, capital=${capital:.2f}")
+            return {"action": "NO_CONTRACT", "reason": why, "expiry": str(expiry)}
+        return self._sell(pick.symbol, "put", f"strike=${pick.strike}, delta={delta:.2f} ({why}), expiry={pick.expiry}, "
+                                               f"NVDA=${nvda_price:.2f}, capital=${capital:.2f}")
 
     def _sell_covered_call(self, cost_basis: float) -> dict:
         strike = get_call_strike(cost_basis)

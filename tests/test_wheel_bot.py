@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-from strategy import BOT_ORDER_PREFIX, Quote
+from strategy import BOT_ORDER_PREFIX, ChainOption, Quote, bs_put_price, get_target_expiry, years_to_expiry
 from wheel_bot import WheelBot
 
 
@@ -281,3 +281,44 @@ def test_put_size_capped_at_25k_even_with_more_buying_power(mock_client):
     run(WheelBot(mock_client))
 
     assert mock_client.find_put_contract.call_args.args[0] == 250.0
+
+
+# --- puts by delta ---
+
+def live_chain(spot=120.0, vol=0.45, strikes=range(90, 121, 5)):
+    expiry = get_target_expiry()
+    years = years_to_expiry(expiry, datetime.now(timezone.utc))
+    return [ChainOption(f"NVDA{expiry:%y%m%d}P{k * 1000:08d}", float(k), expiry,
+                        quote(bs_put_price(spot, k, years, vol) - 0.01, bs_put_price(spot, k, years, vol) + 0.01), 500)
+            for k in strikes]
+
+
+def test_delta_mode_sells_the_put_closest_to_target(mock_client):
+    mock_client.get_options_buying_power.return_value = 25000.00
+    opts = live_chain()
+    mock_client.get_put_chain.return_value = opts
+    mock_client.sell_option.return_value = {"id": "1"}
+    with patch("wheel_bot.PUT_STRIKE_METHOD", "delta"):
+        result = run(WheelBot(mock_client))
+    sold = mock_client.sell_option.call_args.args[0]
+    assert result["action"] == "SELL_PUT"
+    assert sold in {o.symbol for o in opts if 100 <= o.strike <= 115}   # ~0.30 delta, not the 10% rule's $108
+    mock_client.find_put_contract.assert_not_called()
+
+
+def test_delta_mode_sells_nothing_when_no_put_is_close(mock_client):
+    mock_client.get_options_buying_power.return_value = 25000.00
+    mock_client.get_put_chain.return_value = live_chain(strikes=[100])   # far below 0.30 delta
+    with patch("wheel_bot.PUT_STRIKE_METHOD", "delta"):
+        result = run(WheelBot(mock_client))
+    assert result["action"] == "NO_CONTRACT" and "too far" in result["reason"]
+    mock_client.sell_option.assert_not_called()
+
+
+def test_default_mode_keeps_the_10_percent_rule(mock_client):
+    mock_client.get_options_buying_power.return_value = 25000.00
+    mock_client.find_put_contract.return_value = "NVDA251121P00108000"
+    mock_client.sell_option.return_value = {"id": "1"}
+    run(WheelBot(mock_client))
+    mock_client.get_put_chain.assert_not_called()
+    assert mock_client.find_put_contract.call_args.args[0] == 108.0
