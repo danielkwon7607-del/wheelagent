@@ -6,9 +6,11 @@ An automated options wheel strategy bot running on NVDA via Alpaca paper trading
 
 Runs the wheel strategy autonomously every 15 minutes during market hours:
 
-1. **NO_POSITION** → sells a cash-secured put 10% below current price
+1. **NO_POSITION** → sells the cash-secured put closest to 0.30 delta on the
+   live chain (see below; `PUT_STRIKE_METHOD = "otm"` restores the old
+   10%-below rule)
 2. **SHORT_PUT** → monitors for 50% profit, closes early if hit
-3. **LONG_SHARES** (if assigned) → sells a covered call 10% above cost basis
+3. **LONG_SHARES** (if assigned) → sells a covered call at or above cost basis
 4. **SHORT_CALL** → monitors for 50% profit, closes early if hit
 5. Repeats
 
@@ -32,8 +34,38 @@ wheel_bot.py        # Main bot — orchestrates state machine
 strategy.py         # Pure logic — strike selection, expiry, state, early close
 alpaca_client.py    # Alpaca API wrapper — quotes, orders, positions
 summary.py          # Daily P&L summary printer
+preview_strike.py   # Read-only: which put each strike rule would sell right now
 tests/              # Full test suite (pytest)
 ```
+
+## Choosing put strikes by delta
+
+`strategy.PUT_STRIKE_METHOD` picks the put rule. `"otm"` is the original
+10%-below rule. `"delta"` (on since 2026-10-22) sells the put whose delta is closest to
+`PUT_DELTA` (0.30), among strikes the $25k cap covers. Delta is worked out
+from each contract's own mid price with Black-Scholes, the same way the Wheel
+Lab backtests do, because the free feed's greeks can be missing. It skips
+contracts with open interest under 100 or an untradeable quote, and sells
+nothing if the closest usable put is more than 0.10 delta from the target,
+so a short capital cap can't push it into far-out junk strikes.
+
+`python preview_strike.py` shows what each rule would sell right now,
+without placing an order.
+
+## Earnings and covered calls
+
+The bot never sells a put that would still be open when NVDA reports
+earnings (`strategy.EARNINGS_WINDOWS`). If the usual expiry would span the
+report, it sells the last Friday before it when that's at least 5 days out,
+otherwise it waits in cash until the report is out. Covered calls are still
+sold through earnings: being called away just returns the bot to selling
+puts. Report dates NVIDIA hasn't announced yet are estimated windows; replace
+each with the confirmed date once it's out (about three weeks ahead). The bot
+logs a warning once every listed date is past.
+
+Covered calls go at the first strike at or above cost basis
+(`CALL_ABOVE_BASIS = 0`, was 10% above), so assigned shares get called away
+sooner and the bot gets back to selling puts, never below what it paid.
 
 ## Setup
 

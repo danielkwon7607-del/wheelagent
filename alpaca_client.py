@@ -22,10 +22,11 @@ from alpaca.data.requests import (
     StockLatestQuoteRequest,
     StockLatestTradeRequest,
     OptionLatestQuoteRequest,
+    OptionSnapshotRequest,
 )
 from datetime import date, datetime, timedelta
 
-from strategy import BOT_ORDER_PREFIX, Quote, is_nvda_symbol
+from strategy import BOT_ORDER_PREFIX, ChainOption, Quote, is_nvda_symbol
 
 
 load_dotenv(".env.paper")
@@ -109,6 +110,37 @@ class AlpacaClient:
                 best = max(contracts.option_contracts, key=lambda c: float(c.strike_price))
                 return best.symbol
         return None
+
+    def get_put_chain(self, expiry: date, min_strike: float, max_strike: float) -> list[ChainOption]:
+        """Live NVDA puts with strikes in [min_strike, max_strike] for the target
+        expiry (or the nearest holiday-shifted one), each with its latest quote
+        and open interest. Contracts with no quote are left out."""
+        for candidate_expiry in [expiry, expiry - timedelta(days=1), expiry + timedelta(days=1), expiry + timedelta(days=7)]:
+            req = GetOptionContractsRequest(
+                underlying_symbols=["NVDA"],
+                expiration_date=candidate_expiry,
+                type=ContractType.PUT,
+                strike_price_gte=str(min_strike),
+                strike_price_lte=str(max_strike),
+                limit=1000,
+            )
+            contracts = self._trading.get_option_contracts(req).option_contracts
+            if not contracts:
+                continue
+            snaps = {}
+            symbols = [c.symbol for c in contracts]
+            for i in range(0, len(symbols), 100):
+                snaps.update(self._option_data.get_option_snapshot(OptionSnapshotRequest(symbol_or_symbols=symbols[i:i + 100])))
+            chain = []
+            for c in contracts:
+                q = getattr(snaps.get(c.symbol), "latest_quote", None)
+                if q is None:
+                    continue
+                chain.append(ChainOption(c.symbol, float(c.strike_price), c.expiration_date,
+                                         Quote(float(q.bid_price), float(q.ask_price), q.timestamp),
+                                         int(float(c.open_interest or 0))))
+            return chain
+        return []
 
     def find_call_contract(self, strike: float, expiry: date) -> str | None:
         """Find the best available call contract at or above the target strike.

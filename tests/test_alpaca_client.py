@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 from alpaca.common.exceptions import APIError
 from alpaca.trading.enums import OrderSide, PositionIntent
 from alpaca_client import AlpacaClient
-from strategy import BOT_ORDER_PREFIX, Quote
+from datetime import date
+from strategy import BOT_ORDER_PREFIX, ChainOption, Quote
 
 NOW = datetime(2026, 10, 1, 15, 0, tzinfo=timezone.utc)
 
@@ -106,3 +107,33 @@ def test_get_open_nvda_orders_ignores_other_symbols(client):
 def test_cancel_order_returns_false_when_refused(client):
     client._trading.cancel_order_by_id.side_effect = APIError('{"message": "order is not cancelable"}')
     assert client.cancel_order("abc") is False
+
+
+def contract(symbol, strike, oi="250", expiry=date(2026, 10, 23)):
+    return MagicMock(symbol=symbol, strike_price=strike, open_interest=oi, expiration_date=expiry)
+
+
+def test_get_put_chain_joins_contracts_with_their_quotes(client):
+    contracts = [contract("NVDA261023P00200000", 200.0), contract("NVDA261023P00195000", 195.0, oi=None),
+                 contract("NVDA261023P00190000", 190.0)]
+    client._trading.get_option_contracts.return_value = MagicMock(option_contracts=contracts)
+    client._option_data.get_option_snapshot.return_value = {
+        "NVDA261023P00200000": MagicMock(latest_quote=MagicMock(bid_price=3.10, ask_price=3.20, timestamp=NOW)),
+        "NVDA261023P00195000": MagicMock(latest_quote=MagicMock(bid_price=2.00, ask_price=2.06, timestamp=NOW)),
+    }  # no snapshot for the $190 strike
+    result = client.get_put_chain(date(2026, 10, 23), 150, 210)
+    assert result == [
+        ChainOption("NVDA261023P00200000", 200.0, date(2026, 10, 23), Quote(3.10, 3.20, NOW), 250),
+        ChainOption("NVDA261023P00195000", 195.0, date(2026, 10, 23), Quote(2.00, 2.06, NOW), 0),
+    ]
+
+
+def test_get_put_chain_tries_the_holiday_expiry_when_friday_has_none(client):
+    thursday = [contract("NVDA261022P00200000", 200.0, expiry=date(2026, 10, 22))]
+    client._trading.get_option_contracts.side_effect = [MagicMock(option_contracts=[]), MagicMock(option_contracts=thursday)]
+    client._option_data.get_option_snapshot.return_value = {
+        "NVDA261022P00200000": MagicMock(latest_quote=MagicMock(bid_price=3.10, ask_price=3.20, timestamp=NOW))}
+    result = client.get_put_chain(date(2026, 10, 23), 150, 210)
+    assert [o.symbol for o in result] == ["NVDA261022P00200000"]
+    second = client._trading.get_option_contracts.call_args_list[1].args[0]
+    assert second.expiration_date == date(2026, 10, 22)

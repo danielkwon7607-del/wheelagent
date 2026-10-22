@@ -13,6 +13,37 @@ MAX_STOCK_SPREAD_PCT = 0.01    # wider than this, the stock quote is junk; use l
 STALE_ORDER_MINUTES = 10       # a bot order still open after this long is cancelled and re-priced
 BOT_ORDER_PREFIX = "wheelbot-" # client_order_id prefix, so the bot only ever cancels its own orders
 
+# Put strike rule. "otm" is the original rule (10% below the price). "delta"
+# picks the put whose delta is closest to PUT_DELTA, worked out from each
+# contract's own mid price the same way the Wheel Lab backtests do. Which rule
+# runs is Daniel's call: he switched to delta on 2026-10-22.
+PUT_STRIKE_METHOD = "delta"
+PUT_DELTA = 0.30
+DELTA_TOLERANCE = 0.10         # no put within this of PUT_DELTA (e.g. capital too short) -> don't sell
+MIN_OPEN_INTEREST = 100        # skip contracts almost nobody holds
+RISK_FREE_RATE = 0.04          # for Black-Scholes; a point either way moves a 0.30 delta ~0.003
+
+# Covered calls: the first strike at or above cost basis times (1 + this).
+# 0 (Daniel prefers selling puts, 2026-10-22) gets the shares called away
+# sooner, never below what was paid; the original rule was 0.10.
+CALL_ABOVE_BASIS = 0.0
+
+# Earnings: never sell a put that expires after NVDA's report (it reports
+# after the close), so an earnings gap can't assign it. Use the last Friday
+# before the report if that's at least MIN_PUT_DAYS away, else wait in cash.
+# Calls are still sold through earnings: being called away just returns the
+# bot to selling puts. A (start, end) window brackets a report date that isn't
+# announced yet; replace it with (day, day) once NVIDIA confirms it (usually
+# about three weeks ahead). Past reports were all Wednesdays (Tue in
+# Thanksgiving week).
+EARNINGS_WINDOWS = [
+    (date(2026, 11, 17), date(2026, 11, 25)),   # Q3 FY27, estimated
+    (date(2027, 2, 22), date(2027, 2, 26)),     # Q4 FY27, estimated
+    (date(2027, 5, 19), date(2027, 5, 27)),     # Q1 FY28, estimated
+    (date(2027, 8, 23), date(2027, 8, 27)),     # Q2 FY28, estimated
+]
+MIN_PUT_DAYS = 5
+
 
 @dataclass(frozen=True)
 class Quote:
@@ -23,6 +54,16 @@ class Quote:
     @property
     def mid(self) -> float:
         return (self.bid + self.ask) / 2
+
+
+@dataclass(frozen=True)
+class ChainOption:
+    """One contract from the live option chain."""
+    symbol: str
+    strike: float
+    expiry: date
+    quote: Quote
+    open_interest: int
 
 
 def quote_problem(quote: Quote, now: datetime, max_spread_pct: float = MAX_OPTION_SPREAD_PCT) -> str | None:
@@ -103,30 +144,71 @@ def get_put_strike(nvda_price: float, buying_power: float) -> float:
     return float(strike)
 
 
-def get_call_strike(cost_basis: float) -> float:
+def get_call_strike(cost_basis: float, above: float | None = None) -> float:
     """
-    Target strike is 10% above cost basis, rounded up to nearest dollar.
-    Never returns a strike below cost basis.
+    Lowest acceptable call strike: cost basis times (1 + CALL_ABOVE_BASIS),
+    rounded up to the cent. Never below cost basis.
     """
-    target = cost_basis * 1.10
-    # Round to 10 decimal places first to avoid floating-point precision issues
+    above = CALL_ABOVE_BASIS if above is None else above
+    # Round before ceil to avoid floating-point artifacts,
     # e.g. 100.0 * 1.10 = 110.00000000000001 in IEEE 754
-    return float(math.ceil(round(target, 10)))
+    return math.ceil(round(cost_basis * (1 + above) * 100, 6)) / 100
 
 
-def get_target_expiry() -> date:
+def get_target_expiry(min_days: int = 14) -> date:
     """
-    Returns the first Friday at least 14 days from today (so 14-20 days out).
+    Returns the first Friday at least min_days from today (14 -> 14-20 days out).
     Options expire on Fridays.
     """
     today = date.today()
-    # Find the first Friday at least 14 days out
-    days_ahead = 14
-    candidate = today + timedelta(days=days_ahead)
+    candidate = today + timedelta(days=min_days)
     # Advance to Friday (weekday 4)
     while candidate.weekday() != 4:
         candidate += timedelta(days=1)
     return candidate
+
+
+def today_et(_now: datetime | None = None) -> date:
+    """Today's date in New York, whatever timezone the runner uses."""
+    return (_now or datetime.now(pytz.timezone("US/Eastern"))).astimezone(pytz.timezone("US/Eastern")).date()
+
+
+def occ_expiry(symbol: str) -> date:
+    """Expiry from an OCC option symbol, e.g. NVDA261106P00197500 -> 2026-11-06."""
+    return datetime.strptime(symbol[-15:-9], "%y%m%d").date()
+
+
+def crosses_earnings(expiry: date, today: date, windows=None) -> bool:
+    """True if an option expiring on `expiry` would still be open when NVDA
+    reports. A report on expiry day itself is after the close, so it's safe."""
+    windows = EARNINGS_WINDOWS if windows is None else windows
+    return any(today <= end and expiry > start for start, end in windows)
+
+
+def earnings_calendar_stale(today: date, windows=None) -> bool:
+    """True once every listed report is in the past: the list needs updating."""
+    windows = EARNINGS_WINDOWS if windows is None else windows
+    return all(end < today for _, end in windows)
+
+
+def put_expiry(today: date, min_days: int = 14, windows=None) -> tuple[date | None, str]:
+    """Expiry for the next put: the first Friday at least min_days out,
+    unless that would span an earnings report. Then the last Friday before
+    the report, if it's at least MIN_PUT_DAYS away; else None (wait)."""
+    windows = EARNINGS_WINDOWS if windows is None else windows
+    target = today + timedelta(days=min_days)
+    while target.weekday() != 4:
+        target += timedelta(days=1)
+    for start, end in sorted(windows):
+        if today <= end and target > start:
+            friday = start
+            while friday.weekday() != 4:
+                friday -= timedelta(days=1)
+            report = f"NVDA reports {start}" if start == end else f"NVDA reports between {start} and {end} (estimated)"
+            if (friday - today).days >= MIN_PUT_DAYS:
+                return friday, f"{report}: using the last Friday before it"
+            return None, f"{report}: no new put until after it"
+    return target, "normal"
 
 
 def should_close_early(premium_received: float, current_price: float) -> bool:
@@ -150,3 +232,86 @@ def determine_state(has_shares: bool, has_open_put: bool, has_open_call: bool) -
     if has_open_put:
         return "SHORT_PUT"
     return "NO_POSITION"
+
+
+# ---------- strike selection by delta ----------
+
+def _ncdf(x: float) -> float:
+    return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+
+
+def bs_put_price(spot: float, strike: float, years: float, vol: float, rate: float = RISK_FREE_RATE) -> float:
+    """Black-Scholes price of a European put."""
+    if years <= 0 or vol <= 0:
+        return max(0.0, strike - spot)
+    sd = vol * math.sqrt(years)
+    d1 = (math.log(spot / strike) + (rate + vol * vol / 2) * years) / sd
+    return strike * math.exp(-rate * years) * _ncdf(-(d1 - sd)) - spot * _ncdf(-d1)
+
+
+def put_implied_vol(price: float, spot: float, strike: float, years: float, rate: float = RISK_FREE_RATE) -> float | None:
+    """The volatility at which Black-Scholes gives this put price, or None if
+    no volatility can (the price is at or below intrinsic value, or absurd)."""
+    if years <= 0 or price <= max(0.0, strike * math.exp(-rate * years) - spot) + 1e-6 or price >= strike:
+        return None
+    lo, hi = 0.01, 5.0
+    if bs_put_price(spot, strike, years, hi, rate) < price:
+        return None
+    for _ in range(80):
+        mid = (lo + hi) / 2
+        if bs_put_price(spot, strike, years, mid, rate) > price:
+            hi = mid
+        else:
+            lo = mid
+    return (lo + hi) / 2
+
+
+def put_delta(spot: float, strike: float, years: float, vol: float, rate: float = RISK_FREE_RATE) -> float:
+    """Black-Scholes delta of a put (negative, between -1 and 0)."""
+    d1 = (math.log(spot / strike) + (rate + vol * vol / 2) * years) / (vol * math.sqrt(years))
+    return _ncdf(d1) - 1
+
+
+def years_to_expiry(expiry: date, now: datetime) -> float:
+    """Time left until the 4pm ET close on expiry day, in years."""
+    et = pytz.timezone("US/Eastern")
+    close = et.localize(datetime(expiry.year, expiry.month, expiry.day, 16, 0))
+    return max((close - now).total_seconds(), 60.0) / (365 * 24 * 3600)
+
+
+def pick_put_by_delta(options: list[ChainOption], spot: float, max_strike: float, now: datetime,
+                      target: float = PUT_DELTA) -> tuple[ChainOption | None, float | None, str]:
+    """The out-of-the-money put whose delta is closest to target, among
+    contracts the capital covers, with enough open interest and a quote fit
+    to trade on. Returns (option, its delta, why).
+    Returns no option if the closest one is more than DELTA_TOLERANCE away,
+    so a short capital cap can't push it into far-out junk strikes."""
+    best, best_delta = None, None
+    skipped = {"over capital": 0, "low open interest": 0, "bad quote": 0, "no implied vol": 0}
+    for o in options:
+        if o.strike >= spot:
+            continue
+        if o.strike > max_strike:
+            skipped["over capital"] += 1
+            continue
+        if o.open_interest < MIN_OPEN_INTEREST:
+            skipped["low open interest"] += 1
+            continue
+        if quote_problem(o.quote, now):
+            skipped["bad quote"] += 1
+            continue
+        years = years_to_expiry(o.expiry, now)
+        vol = put_implied_vol(o.quote.mid, spot, o.strike, years)
+        if vol is None:
+            skipped["no implied vol"] += 1
+            continue
+        d = abs(put_delta(spot, o.strike, years, vol))
+        # closest delta wins; on a tie, the lower (safer) strike
+        if best is None or (abs(d - target), o.strike) < (abs(best_delta - target), best.strike):
+            best, best_delta = o, d
+    skips = ", ".join(f"{n} {k}" for k, n in skipped.items() if n)
+    if best is None:
+        return None, None, f"no usable put ({skips or 'empty chain'})"
+    if abs(best_delta - target) > DELTA_TOLERANCE:
+        return None, best_delta, f"closest usable put is {best_delta:.2f} delta, too far from {target:.2f} ({skips or 'none skipped'})"
+    return best, best_delta, f"closest to {target:.2f} delta" + (f" (skipped: {skips})" if skips else "")
