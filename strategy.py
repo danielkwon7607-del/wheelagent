@@ -16,8 +16,8 @@ BOT_ORDER_PREFIX = "wheelbot-" # client_order_id prefix, so the bot only ever ca
 # Put strike rule. "otm" is the original rule (10% below the price). "delta"
 # picks the put whose delta is closest to PUT_DELTA, worked out from each
 # contract's own mid price the same way the Wheel Lab backtests do. Which rule
-# runs is Daniel's call; the default keeps the bot's behavior unchanged.
-PUT_STRIKE_METHOD = "otm"
+# runs is Daniel's call: he switched to delta on 2026-10-22.
+PUT_STRIKE_METHOD = "delta"
 PUT_DELTA = 0.30
 DELTA_TOLERANCE = 0.10         # no put within this of PUT_DELTA (e.g. capital too short) -> don't sell
 MIN_OPEN_INTEREST = 100        # skip contracts almost nobody holds

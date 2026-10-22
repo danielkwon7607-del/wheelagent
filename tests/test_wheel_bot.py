@@ -38,6 +38,15 @@ def run(bot):
         return bot.run()
 
 
+@pytest.fixture(autouse=True)
+def put_rule(request):
+    """Order-handling tests run under the old 10% rule unless marked
+    @pytest.mark.delta; tests that set the rule themselves override this."""
+    method = "delta" if request.node.get_closest_marker("delta") else "otm"
+    with patch("wheel_bot.PUT_STRIKE_METHOD", method):
+        yield method
+
+
 def test_no_position_sells_put(mock_client):
     """When state is NO_POSITION, bot should sell a put."""
     mock_client.find_put_contract.return_value = "NVDA251121P00108000"
@@ -200,6 +209,9 @@ class FakeAccount:
     def find_put_contract(self, strike, expiry):
         return "NVDA251121P00207000"
 
+    def get_put_chain(self, expiry, min_strike, max_strike):
+        return live_chain(spot=230.0, strikes=range(180, 231, 5))
+
     def get_option_quote(self, contract_symbol):
         return quote(0.55, 0.60)
 
@@ -315,10 +327,42 @@ def test_delta_mode_sells_nothing_when_no_put_is_close(mock_client):
     mock_client.sell_option.assert_not_called()
 
 
-def test_default_mode_keeps_the_10_percent_rule(mock_client):
+def test_otm_mode_keeps_the_10_percent_rule(mock_client):
     mock_client.get_options_buying_power.return_value = 25000.00
     mock_client.find_put_contract.return_value = "NVDA251121P00108000"
     mock_client.sell_option.return_value = {"id": "1"}
-    run(WheelBot(mock_client))
+    with patch("wheel_bot.PUT_STRIKE_METHOD", "otm"):
+        run(WheelBot(mock_client))
     mock_client.get_put_chain.assert_not_called()
     assert mock_client.find_put_contract.call_args.args[0] == 108.0
+
+
+@pytest.mark.delta
+def test_running_twice_never_creates_two_orders_in_delta_mode():
+    account = FakeAccount()
+    with patch("wheel_bot.is_market_hours", return_value=True):
+        WheelBot(account).run()
+        second = WheelBot(account).run()
+    assert len(account.submitted) == 1
+    assert second["action"] == "WAIT_OPEN_ORDER"
+
+
+@pytest.mark.delta
+def test_delta_mode_never_sells_a_strike_over_the_25k_cap(mock_client):
+    # NVDA $300: the 0.30-delta put is ~$285, but $25k only covers a $250 strike.
+    mock_client.get_options_buying_power.return_value = 100_000.00
+    mock_client.get_nvda_quote.return_value = quote(299.99, 300.01)
+    mock_client.get_put_chain.return_value = live_chain(spot=300.0, strikes=range(240, 301, 5))
+    result = run(WheelBot(mock_client))
+    mock_client.sell_option.assert_not_called()
+    assert result["action"] == "NO_CONTRACT" and "too far" in result["reason"]
+
+
+@pytest.mark.delta
+def test_delta_mode_rechecks_the_quote_before_selling(mock_client):
+    mock_client.get_options_buying_power.return_value = 25000.00
+    mock_client.get_put_chain.return_value = live_chain()
+    mock_client.get_option_quote.return_value = quote(1.00, 2.00)   # spread blew out since the chain was read
+    result = run(WheelBot(mock_client))
+    mock_client.sell_option.assert_not_called()
+    assert result["action"] == "SKIP_BAD_QUOTE"

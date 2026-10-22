@@ -6,9 +6,9 @@ An automated options wheel strategy bot running on NVDA via Alpaca paper trading
 
 Runs the wheel strategy autonomously every 15 minutes during market hours:
 
-1. **NO_POSITION** → sells a cash-secured put 10% below current price
-   (or, with `PUT_STRIKE_METHOD = "delta"` in strategy.py, the put closest to
-   `PUT_DELTA` on the live chain; see below)
+1. **NO_POSITION** → sells the cash-secured put closest to 0.30 delta on the
+   live chain (see below; `PUT_STRIKE_METHOD = "otm"` restores the old
+   10%-below rule)
 2. **SHORT_PUT** → monitors for 50% profit, closes early if hit
 3. **LONG_SHARES** (if assigned) → sells a covered call 10% above cost basis
 4. **SHORT_CALL** → monitors for 50% profit, closes early if hit
@@ -40,8 +40,8 @@ tests/              # Full test suite (pytest)
 
 ## Choosing put strikes by delta
 
-`strategy.PUT_STRIKE_METHOD` picks the put rule. `"otm"` (the default) is the
-original 10%-below rule. `"delta"` sells the put whose delta is closest to
+`strategy.PUT_STRIKE_METHOD` picks the put rule. `"otm"` is the original
+10%-below rule. `"delta"` (on since 2026-10-22) sells the put whose delta is closest to
 `PUT_DELTA` (0.30), among strikes the $25k cap covers. Delta is worked out
 from each contract's own mid price with Black-Scholes, the same way the Wheel
 Lab backtests do, because the free feed's greeks can be missing. It skips
