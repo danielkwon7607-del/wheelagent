@@ -17,13 +17,14 @@ adding something means editing or replacing something — not appending.
 - Goal (Daniel, 2026-10-05): extra cash from selling options on $25k,
   >=8%/yr (README). Judge by cash income/month and drawdown, not by beating
   NVDA in a rally (the wheel can't). No reconciled P&L yet (Phase 5).
-- Current rules (not yet revisited): put strike 10% below spot (~0.07
-  delta in Oct 2026, premiums ~$0.50-1.25), call strike 10% above cost
-  basis, expiry = first Friday >=14 days out (14-20 DTE), close at 50%
-  profit and roll immediately. Cash-secured only, 1 contract.
+- Current rules (live 2026-10-22, Daniel's ask; he prefers the put phase):
+  puts at 0.30 delta from the live chain (delta from mid via Black-Scholes,
+  OI>=100), calls at the first strike >= cost basis, expiry = first Friday
+  >=14 days out, close at 50% profit and roll. Puts never span earnings
+  (Friday before if 5+ days out, else wait); calls sell through them.
+  Cash-secured, 1 contract. Old 10% rule: PUT_STRIKE_METHOD = "otm".
 - Build plan: docs/kiln-build-prompt.md, phases 0-6, stop for Daniel's
-  review after each. Phase 0 merged. Branch delta-strikes (10-20, pushed,
-  unmerged): PUT_STRIKE_METHOD "delta" option, default "otm" unchanged.
+  review after each. Phase 0 merged; delta-strikes merged 10-22 (f698e4e).
 - Research 2026-10-03: the wheel kept ~63% of NVDA's CAGR but ~90% of its
   max drawdown; premium was ~18% of 2024-26 profit.
 - Search 2026-10-05: NVDA best = 0.30 delta, 21d, TP 75%, calls 5% above
@@ -108,17 +109,17 @@ adding something means editing or replacing something — not appending.
   status=INACTIVE. Fetch 100 symbols per request (12k contracts ~2 min).
 - Earnings dates: SEC EDGAR 8-K item 2.02 filings (research/fetch_data.py);
   NVDA reports after the close, so the reaction is the next trading day.
-- get_put_strike silently lowers the strike to whatever capital allows.
-  With capital short (e.g. a put already open), it targets junk far-OTM
-  strikes; today only the zero-bid / wide-spread checks stop a sale.
+- Delta mode sells nothing if no put is within 0.10 of the target (e.g.
+  capital short); the old "otm" rule would target junk far-OTM strikes.
 - Limit orders sit at mid. An unfilled order is cancelled after 10 min and
   re-priced at the new mid on the next run; there is no stepping toward
   bid/ask yet (Phase 4), so a close may never fill and ride to expiry.
 - "10% below spot" is ~0.07-0.10 delta on NVDA, far less on calm stocks.
   Compare stocks by delta.
-- No earnings filter. NVDA reports ~late Nov; the bot will sell through it.
-- After assignment in a drop, "10% above cost basis" can be far OTM and
-  pay ~nothing. No fallback or roll rule exists yet.
+- strategy.EARNINGS_WINDOWS holds ESTIMATED report windows (Nov 17-25 2026
+  and 2027). Replace each with NVIDIA's confirmed date once announced
+  (~3 weeks ahead, usually late Oct for Nov); a wide window idles puts.
+- After assignment in a big drop, calls at cost basis can still pay ~0.
 - lab/index.html is a full document for local use; the artifact host adds
   its own wrapper, so publish lab/dist/ from make_artifact.py. Locally there
   is no [hidden] reset, so the page's CSS carries its own. uPlot charts need
