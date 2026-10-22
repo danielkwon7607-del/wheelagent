@@ -7,8 +7,8 @@ import math
 from datetime import datetime, timezone
 
 from alpaca_client import AlpacaClient
-from strategy import (CAPITAL_CAP, PUT_DELTA, get_put_strike, get_target_expiry, pick_put_by_delta,
-                      put_delta, put_implied_vol, quote_problem, underlying_price, years_to_expiry)
+from strategy import (CAPITAL_CAP, PUT_DELTA, get_put_strike, pick_put_by_delta, put_delta, put_expiry,
+                      put_implied_vol, quote_problem, today_et, underlying_price, years_to_expiry)
 
 
 def main():
@@ -20,7 +20,12 @@ def main():
     max_strike = math.floor(CAPITAL_CAP / 100)
     print(f"NVDA ${spot:.2f}, capital ${CAPITAL_CAP:,.0f} (max strike ${max_strike})\n")
     for days in (14, 30):
-        expiry = get_target_expiry(days)
+        expiry, why = put_expiry(today_et(), days)
+        if expiry is None:
+            print(f"{days}+ days: no put — {why}\n")
+            continue
+        if why != "normal":
+            print(f"({why})")
         chain = client.get_put_chain(expiry, math.floor(spot * 0.70), math.ceil(spot))
         if not chain:
             print(f"{days}+ days: no chain found for {expiry}")

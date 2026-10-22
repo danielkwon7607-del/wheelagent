@@ -10,7 +10,7 @@ Runs the wheel strategy autonomously every 15 minutes during market hours:
    live chain (see below; `PUT_STRIKE_METHOD = "otm"` restores the old
    10%-below rule)
 2. **SHORT_PUT** → monitors for 50% profit, closes early if hit
-3. **LONG_SHARES** (if assigned) → sells a covered call 10% above cost basis
+3. **LONG_SHARES** (if assigned) → sells a covered call at or above cost basis
 4. **SHORT_CALL** → monitors for 50% profit, closes early if hit
 5. Repeats
 
@@ -51,6 +51,21 @@ so a short capital cap can't push it into far-out junk strikes.
 
 `python preview_strike.py` shows what each rule would sell right now,
 without placing an order.
+
+## Earnings and covered calls
+
+The bot never sells a put that would still be open when NVDA reports
+earnings (`strategy.EARNINGS_WINDOWS`). If the usual expiry would span the
+report, it sells the last Friday before it when that's at least 5 days out,
+otherwise it waits in cash until the report is out. Covered calls are still
+sold through earnings: being called away just returns the bot to selling
+puts. Report dates NVIDIA hasn't announced yet are estimated windows; replace
+each with the confirmed date once it's out (about three weeks ahead). The bot
+logs a warning once every listed date is past.
+
+Covered calls go at the first strike at or above cost basis
+(`CALL_ABOVE_BASIS = 0`, was 10% above), so assigned shares get called away
+sooner and the bot gets back to selling puts, never below what it paid.
 
 ## Setup
 

@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from strategy import BOT_ORDER_PREFIX, ChainOption, Quote, bs_put_price, get_target_expiry, years_to_expiry
@@ -36,6 +36,13 @@ def mock_client():
 def run(bot):
     with patch("wheel_bot.is_market_hours", return_value=True):
         return bot.run()
+
+
+@pytest.fixture(autouse=True)
+def no_earnings_nearby():
+    """Keep tests independent of today's date and NVDA's real calendar."""
+    with patch("strategy.EARNINGS_WINDOWS", [(date(2099, 1, 1), date(2099, 1, 1))]):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -366,3 +373,47 @@ def test_delta_mode_rechecks_the_quote_before_selling(mock_client):
     result = run(WheelBot(mock_client))
     mock_client.sell_option.assert_not_called()
     assert result["action"] == "SKIP_BAD_QUOTE"
+
+
+# --- earnings ---
+
+def test_no_put_when_earnings_are_too_close(mock_client):
+    soon = date.today() + timedelta(days=2)
+    with patch("strategy.EARNINGS_WINDOWS", [(soon, soon)]), patch("wheel_bot.today_et", return_value=date.today()):
+        result = run(WheelBot(mock_client))
+    assert result["action"] == "SKIP_EARNINGS"
+    mock_client.sell_option.assert_not_called()
+
+
+@pytest.mark.delta
+def test_put_expires_before_earnings(mock_client):
+    today = date(2026, 11, 2)
+    mock_client.get_options_buying_power.return_value = 25000.00
+    mock_client.get_put_chain.return_value = live_chain()
+    mock_client.sell_option.return_value = {"id": "1"}
+    with patch("strategy.EARNINGS_WINDOWS", [(date(2026, 11, 17), date(2026, 11, 25))]), \
+         patch("wheel_bot.today_et", return_value=today):
+        run(WheelBot(mock_client))
+    assert mock_client.get_put_chain.call_args.args[0] == date(2026, 11, 13)
+
+
+def test_never_sells_a_put_that_spans_earnings(mock_client):
+    # The contract search fell back to a later Friday that spans the report.
+    mock_client.find_put_contract.return_value = "NVDA261120P00108000"
+    with patch("strategy.EARNINGS_WINDOWS", [(date(2026, 11, 18), date(2026, 11, 18))]), \
+         patch("wheel_bot.today_et", return_value=date(2026, 10, 22)):
+        result = run(WheelBot(mock_client))
+    assert result["action"] == "SKIP_EARNINGS"
+    mock_client.sell_option.assert_not_called()
+
+
+def test_calls_still_sold_through_earnings(mock_client):
+    mock_client.get_nvda_stock_position.return_value = (True, 100, 108.00)
+    mock_client.find_call_contract.return_value = "NVDA261120C00108000"
+    mock_client.get_option_quote.return_value = quote(1.75, 1.85)
+    mock_client.sell_option.return_value = {"id": "1"}
+    with patch("strategy.EARNINGS_WINDOWS", [(date(2026, 11, 18), date(2026, 11, 18))]), \
+         patch("wheel_bot.today_et", return_value=date(2026, 10, 22)):
+        result = run(WheelBot(mock_client))
+    assert result["action"] == "SELL_CALL"
+    assert mock_client.find_call_contract.call_args.args[0] == 108.00   # at cost basis

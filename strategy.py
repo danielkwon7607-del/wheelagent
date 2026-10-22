@@ -23,6 +23,27 @@ DELTA_TOLERANCE = 0.10         # no put within this of PUT_DELTA (e.g. capital t
 MIN_OPEN_INTEREST = 100        # skip contracts almost nobody holds
 RISK_FREE_RATE = 0.04          # for Black-Scholes; a point either way moves a 0.30 delta ~0.003
 
+# Covered calls: the first strike at or above cost basis times (1 + this).
+# 0 (Daniel prefers selling puts, 2026-10-22) gets the shares called away
+# sooner, never below what was paid; the original rule was 0.10.
+CALL_ABOVE_BASIS = 0.0
+
+# Earnings: never sell a put that expires after NVDA's report (it reports
+# after the close), so an earnings gap can't assign it. Use the last Friday
+# before the report if that's at least MIN_PUT_DAYS away, else wait in cash.
+# Calls are still sold through earnings: being called away just returns the
+# bot to selling puts. A (start, end) window brackets a report date that isn't
+# announced yet; replace it with (day, day) once NVIDIA confirms it (usually
+# about three weeks ahead). Past reports were all Wednesdays (Tue in
+# Thanksgiving week).
+EARNINGS_WINDOWS = [
+    (date(2026, 11, 17), date(2026, 11, 25)),   # Q3 FY27, estimated
+    (date(2027, 2, 22), date(2027, 2, 26)),     # Q4 FY27, estimated
+    (date(2027, 5, 19), date(2027, 5, 27)),     # Q1 FY28, estimated
+    (date(2027, 8, 23), date(2027, 8, 27)),     # Q2 FY28, estimated
+]
+MIN_PUT_DAYS = 5
+
 
 @dataclass(frozen=True)
 class Quote:
@@ -123,15 +144,15 @@ def get_put_strike(nvda_price: float, buying_power: float) -> float:
     return float(strike)
 
 
-def get_call_strike(cost_basis: float) -> float:
+def get_call_strike(cost_basis: float, above: float | None = None) -> float:
     """
-    Target strike is 10% above cost basis, rounded up to nearest dollar.
-    Never returns a strike below cost basis.
+    Lowest acceptable call strike: cost basis times (1 + CALL_ABOVE_BASIS),
+    rounded up to the cent. Never below cost basis.
     """
-    target = cost_basis * 1.10
-    # Round to 10 decimal places first to avoid floating-point precision issues
+    above = CALL_ABOVE_BASIS if above is None else above
+    # Round before ceil to avoid floating-point artifacts,
     # e.g. 100.0 * 1.10 = 110.00000000000001 in IEEE 754
-    return float(math.ceil(round(target, 10)))
+    return math.ceil(round(cost_basis * (1 + above) * 100, 6)) / 100
 
 
 def get_target_expiry(min_days: int = 14) -> date:
@@ -145,6 +166,49 @@ def get_target_expiry(min_days: int = 14) -> date:
     while candidate.weekday() != 4:
         candidate += timedelta(days=1)
     return candidate
+
+
+def today_et(_now: datetime | None = None) -> date:
+    """Today's date in New York, whatever timezone the runner uses."""
+    return (_now or datetime.now(pytz.timezone("US/Eastern"))).astimezone(pytz.timezone("US/Eastern")).date()
+
+
+def occ_expiry(symbol: str) -> date:
+    """Expiry from an OCC option symbol, e.g. NVDA261106P00197500 -> 2026-11-06."""
+    return datetime.strptime(symbol[-15:-9], "%y%m%d").date()
+
+
+def crosses_earnings(expiry: date, today: date, windows=None) -> bool:
+    """True if an option expiring on `expiry` would still be open when NVDA
+    reports. A report on expiry day itself is after the close, so it's safe."""
+    windows = EARNINGS_WINDOWS if windows is None else windows
+    return any(today <= end and expiry > start for start, end in windows)
+
+
+def earnings_calendar_stale(today: date, windows=None) -> bool:
+    """True once every listed report is in the past: the list needs updating."""
+    windows = EARNINGS_WINDOWS if windows is None else windows
+    return all(end < today for _, end in windows)
+
+
+def put_expiry(today: date, min_days: int = 14, windows=None) -> tuple[date | None, str]:
+    """Expiry for the next put: the first Friday at least min_days out,
+    unless that would span an earnings report. Then the last Friday before
+    the report, if it's at least MIN_PUT_DAYS away; else None (wait)."""
+    windows = EARNINGS_WINDOWS if windows is None else windows
+    target = today + timedelta(days=min_days)
+    while target.weekday() != 4:
+        target += timedelta(days=1)
+    for start, end in sorted(windows):
+        if today <= end and target > start:
+            friday = start
+            while friday.weekday() != 4:
+                friday -= timedelta(days=1)
+            report = f"NVDA reports {start}" if start == end else f"NVDA reports between {start} and {end} (estimated)"
+            if (friday - today).days >= MIN_PUT_DAYS:
+                return friday, f"{report}: using the last Friday before it"
+            return None, f"{report}: no new put until after it"
+    return target, "normal"
 
 
 def should_close_early(premium_received: float, current_price: float) -> bool:

@@ -14,18 +14,23 @@ from strategy import (
     PUT_DELTA,
     PUT_STRIKE_METHOD,
     available_capital,
+    crosses_earnings,
     determine_state,
+    earnings_calendar_stale,
     get_call_strike,
     get_put_strike,
     get_target_expiry,
     is_bot_order,
     is_market_hours,
     is_order_stale,
+    occ_expiry,
     occ_strike,
     pick_put_by_delta,
+    put_expiry,
     quote_problem,
     round_to_tick,
     should_close_early,
+    today_et,
     underlying_price,
 )
 
@@ -182,32 +187,38 @@ class WheelBot:
         return available_capital(options_buying_power, in_use)
 
     def _sell_cash_secured_put(self) -> dict:
+        today = today_et()
+        if earnings_calendar_stale(today):
+            log.warning("Earnings calendar is out of date (every listed report is past): update strategy.EARNINGS_WINDOWS.")
+        expiry, why = put_expiry(today)
+        if expiry is None:
+            log.info(f"SKIP_EARNINGS — {why}. Cash waits (earning interest).")
+            return {"action": "SKIP_EARNINGS", "reason": why}
         nvda_price = self._nvda_price()
         if nvda_price is None:
             log.warning("No trustworthy NVDA price (quote and last trade stale, zero, or junk) — not selling a put.")
             return {"action": "SKIP_BAD_QUOTE", "symbol": "NVDA"}
         capital = self._available_capital()
         if PUT_STRIKE_METHOD == "delta":
-            return self._sell_put_by_delta(nvda_price, capital)
+            return self._sell_put_by_delta(nvda_price, capital, expiry, why)
         strike = get_put_strike(nvda_price, capital)
-        expiry = get_target_expiry()
         contract = self.client.find_put_contract(strike, expiry)
         if not contract:
             log.warning(f"No put contract found for strike=${strike}, expiry={expiry}, capital=${capital:.2f}")
             return {"action": "NO_CONTRACT", "strike": strike, "expiry": str(expiry)}
         return self._sell(contract, "put", f"strike=${strike}, expiry={expiry}, NVDA=${nvda_price:.2f}, capital=${capital:.2f}")
 
-    def _sell_put_by_delta(self, nvda_price: float, capital: float) -> dict:
+    def _sell_put_by_delta(self, nvda_price: float, capital: float, expiry, expiry_why: str = "normal") -> dict:
         """Sell the put closest to PUT_DELTA from the live chain, among strikes
         the capital covers. No sale if nothing usable is close enough."""
-        expiry = get_target_expiry()
         max_strike = math.floor(capital / 100)
         chain = self.client.get_put_chain(expiry, min_strike=math.floor(nvda_price * 0.70), max_strike=math.ceil(nvda_price))
         pick, delta, why = pick_put_by_delta(chain, nvda_price, max_strike, datetime.now(timezone.utc))
         if pick is None:
             log.warning(f"No put sold: {why}. Target {PUT_DELTA:.2f} delta, expiry~{expiry}, NVDA=${nvda_price:.2f}, capital=${capital:.2f}")
             return {"action": "NO_CONTRACT", "reason": why, "expiry": str(expiry)}
-        return self._sell(pick.symbol, "put", f"strike=${pick.strike}, delta={delta:.2f} ({why}), expiry={pick.expiry}, "
+        note = "" if expiry_why == "normal" else f" [{expiry_why}]"
+        return self._sell(pick.symbol, "put", f"strike=${pick.strike}, delta={delta:.2f} ({why}), expiry={pick.expiry}{note}, "
                                                f"NVDA=${nvda_price:.2f}, capital=${capital:.2f}")
 
     def _sell_covered_call(self, cost_basis: float) -> dict:
@@ -220,6 +231,11 @@ class WheelBot:
         return self._sell(contract, "call", f"strike=${strike}, expiry={expiry}")
 
     def _sell(self, contract: str, kind: str, detail: str) -> dict:
+        # Last guard: a holiday fallback in the contract search can land on a
+        # later expiry, which must not span an earnings report.
+        if kind == "put" and crosses_earnings(occ_expiry(contract), today_et()):
+            log.warning(f"Not selling put {contract} — it would still be open at NVDA's earnings report.")
+            return {"action": "SKIP_EARNINGS", "symbol": contract, "reason": "expiry spans earnings"}
         quote = self.client.get_option_quote(contract)
         problem = quote_problem(quote, datetime.now(timezone.utc))
         if problem:
