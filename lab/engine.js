@@ -238,7 +238,7 @@
     function pickReal(kind, i, S, d, target, capital) {
       const exp = realExpiry(D, d, cfg.dte);
       if (exp === null) return null;
-      if (cfg.skipEarnings && crossesEarnings(D, d, exp)) return { skip: "earnings" };
+      if (cfg.skipEarnings && (kind === "P" || cfg.skipEarnings !== "puts") && crossesEarnings(D, d, exp)) return { skip: "earnings" };
       const chain = D.chains.get(exp)[kind];
       const T = Math.max(exp - d, 1) / 365, r = tb(i);
       const legMethod = kind === "P" ? cfg.put.method : callMethod(S);
@@ -379,7 +379,7 @@
                                      : (method === "spot" ? S : basis) * (1 + cfg.call.otm);
         const vol = modelIv("C", i, exp, K / S);
         const delta = bsDelta("C", S, K, T, r, vol);
-        if ((cfg.skipEarnings && crossesEarnings(D, d, exp)) || delta < MIN_DELTA) {
+        if ((cfg.skipEarnings && cfg.skipEarnings !== "puts" && crossesEarnings(D, d, exp)) || delta < MIN_DELTA) {
           if (!stuckLogged) { ev(k, "stuck", `No call worth selling: shares ${((1 - S / basis) * 100).toFixed(0)}% under basis`); stuckLogged = true; }
           return;
         }
