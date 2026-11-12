@@ -24,6 +24,11 @@ Every result you report must show return AND risk side by side.
 Daniel picks the final parameters. Your job is to build the tools, run the
 tests, and lay out the tradeoffs clearly. Do not choose for him.
 
+Daniel approves rules, not trades. Once he picks a rule set, the bot runs
+fully automatically: it reads the option chain, picks the contract, and
+places, manages, and closes orders with no per-trade approval. Don't add
+manual confirmation steps unless he asks for them.
+
 ## Ground rules
 
 - Paper trading only. Never touch live keys.

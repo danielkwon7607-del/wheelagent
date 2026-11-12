@@ -69,6 +69,7 @@ adding something means editing or replacing something — not appending.
   Daniel after 2 failures. It holds a fine-grained GitHub
   token (this repo, Actions r/w; expiry unknown). setup_trigger.py creates
   or updates it from gitignored .env.trigger (token + cron-job.org API key).
+  run_silent.vbs: retired Windows Task Scheduler runner; a leftover task = 2nd bot.
 - .github/workflows/wheel.yml: workflow_dispatch only, concurrency group
   wheel-bot (runs queue, never overlap). The bot's is_market_hours()
   decides whether to act.
